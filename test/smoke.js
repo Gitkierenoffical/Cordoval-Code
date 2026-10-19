@@ -22,6 +22,7 @@ const shot = (p, n) => p.screenshot({ path: path.join(shots, n) }).then(() => co
   const step = process.env.STEP || 'all';
   if (step === 'start') { await app.close(); return; }
   const prompt = process.env.PROMPT || 'Create a tiny static web project here: index.html with a heading "Hello from Cordoval Code", style.css with a lavender background, and app.js that logs "ready". Keep it short.';
+  if (process.env.MODEL) await page.waitForSelector('#model-picker option[value="' + process.env.MODEL + '"]', { state: 'attached', timeout: 30000 }).catch(() => console.log('model option missing'));
   if (process.env.MODEL) await page.selectOption('#model-picker', process.env.MODEL).catch(e => console.log('model select failed', e.message));
   await page.fill('#composer-input', prompt);
   await page.press('#composer-input', 'Enter');
