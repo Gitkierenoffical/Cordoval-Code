@@ -77,6 +77,26 @@ function normalizeModels(value) {
   return out;
 }
 
+function storageStatus() {
+  let available = false;
+  let backend = 'unknown';
+  try {
+    available = !!(safeStorage && safeStorage.isEncryptionAvailable());
+    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend) {
+      backend = safeStorage.getSelectedStorageBackend();
+    } else if (process.platform === 'win32') {
+      backend = 'dpapi';
+    } else if (process.platform === 'darwin') {
+      backend = 'keychain';
+    }
+  } catch (err) {}
+  // On Linux, 'basic_text' means no keyring is running and Chromium falls back to a fixed key.
+  const secure = available && backend !== 'basic_text' && backend !== 'unknown';
+  const doc = load();
+  const plainCount = Object.values(doc.providers).filter(e => e && e.t === 'plain').length;
+  return { secure, backend, platform: process.platform, plainCount };
+}
+
 function getMeta() {
   const doc = load();
   const ids = PROVIDER_IDS.slice();
@@ -175,6 +195,7 @@ function readAll() {
 }
 
 module.exports = {
+  storageStatus,
   PROVIDER_IDS,
   getMeta,
   setKey,

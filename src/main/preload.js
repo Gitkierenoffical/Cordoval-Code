@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('cordoval', {
   setKey: (provider, value) => ipcRenderer.invoke('keys:set', provider, value),
   deleteKey: provider => ipcRenderer.invoke('keys:delete', provider),
   setCustom: list => ipcRenderer.invoke('keys:setCustom', list),
+  keyStorage: () => ipcRenderer.invoke('keys:storage'),
   getCustom: () => ipcRenderer.invoke('keys:getCustom'),
   restartEngine: () => ipcRenderer.invoke('engine:restart'),
   getSettings: () => ipcRenderer.invoke('settings:get'),

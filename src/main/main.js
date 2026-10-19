@@ -161,6 +161,7 @@ function registerIpc() {
     return keys.deleteKey(provider);
   });
 
+  ipcMain.handle('keys:storage', () => keys.storageStatus());
   ipcMain.handle('keys:getCustom', () => keys.getCustom());
 
   ipcMain.handle('keys:setCustom', (event, list) => keys.setCustom(list));

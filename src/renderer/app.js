@@ -1435,6 +1435,7 @@
     if (window.cordoval && window.cordoval.getKeys) {
       try {
         state.keysMeta = (await window.cordoval.getKeys()) || [];
+        try { state.keyStorage = await window.cordoval.keyStorage(); } catch (e) { state.keyStorage = null; }
       } catch (err) {
         state.keysMeta = [];
       }
@@ -1453,6 +1454,18 @@
   function renderProviderSettings() {
     const host = els.settingsProviders;
     clear(host);
+    const ks = state.keyStorage;
+    if (ks && !ks.secure) {
+      const warn = el('div', 'keychain-warning');
+      warn.appendChild(el('div', 'keychain-warning-title', 'OS keychain not available'));
+      warn.appendChild(el('div', 'keychain-warning-text',
+        (ks.platform === 'linux'
+          ? 'No Secret Service or KWallet keyring was found (backend: ' + ks.backend + '). '
+          : 'Secure storage is not available on this system. ') +
+        'Keys you save will be stored on this device without OS keychain protection. ' +
+        'Install and unlock a keyring (for example GNOME Keyring or KWallet) and restart Cordoval Code to protect them.'));
+      host.appendChild(warn);
+    }
     const known = ['openrouter', 'openai', 'anthropic', 'google', 'groq', 'xai'];
     const metaById = {};
     for (const item of state.keysMeta) metaById[item.id] = item;
@@ -1465,7 +1478,7 @@
       const card = el('div', 'provider-card');
       const head = el('div', 'provider-head');
       head.appendChild(el('div', 'provider-name', PROVIDER_LABELS[id] || id));
-      head.appendChild(el('div', 'provider-state' + (meta.set ? ' is-set' : ''), meta.set ? 'Stored in OS keychain' : 'Not set'));
+      head.appendChild(el('div', 'provider-state' + (meta.set ? ' is-set' : ''), meta.set ? (state.keyStorage && !state.keyStorage.secure ? 'Saved (not keychain protected)' : 'Stored in OS keychain') : 'Not set'));
       card.appendChild(head);
 
       if (id === 'openrouter') {
