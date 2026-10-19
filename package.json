@@ -8,8 +8,8 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dist:linux": "electron-builder --linux AppImage",
-    "dist:win": "electron-builder --win nsis --x64"
+    "dist:linux": "electron-builder --linux AppImage --publish never",
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "build": {
     "appId": "app.cordoval.code",
@@ -48,7 +48,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Cordoval Code"
-    }
+    },
+    "publish": null
   },
   "devDependencies": {
     "electron": "^33.4.11",
