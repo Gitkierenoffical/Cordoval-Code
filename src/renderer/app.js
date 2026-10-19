@@ -1370,9 +1370,11 @@
       for (const item of list.slice(0, 300)) {
         const btn = el('button', 'search-result');
         btn.type = 'button';
-        const path = item.file || item.path || '';
-        btn.appendChild(el('div', 'search-result-path', path + (item.line ? ':' + item.line : '')));
-        const lines = Array.isArray(item.lines) ? item.lines.join('\n') : (item.text || item.match || '');
+        const txt = function (v) { return v && typeof v === 'object' ? (v.text != null ? v.text : '') : (v == null ? '' : v); };
+        const path = String(txt(item.path) || item.file || '').replace(/^\.\//, '');
+        const lineNo = item.line_number || item.line;
+        btn.appendChild(el('div', 'search-result-path', path + (lineNo ? ':' + lineNo : '')));
+        const lines = Array.isArray(item.lines) ? item.lines.map(txt).join('\n') : (txt(item.lines) || item.text || item.match || '');
         btn.appendChild(el('div', 'search-result-line', String(lines).slice(0, 400)));
         btn.addEventListener('click', function () {
           openFile(path);
