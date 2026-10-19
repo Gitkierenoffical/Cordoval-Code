@@ -34,6 +34,8 @@ models (for example `opencode/mimo-v2.6-flash-free`) work without a key.
 ## Build
     npm run dist:linux   # dist/Cordoval Code-<ver>.AppImage
     npm run dist:win     # dist/Cordoval Code Setup <ver>.exe (NSIS)
+Cross-building the Windows installer on Linux needs wine64 + wine32 (i386 multiarch) and a
+clean prefix, e.g. `WINEPREFIX=~/.wine-cordoval wineboot -i` first.
 On Windows natively: install Node 20, Git, then `npm install`, `bash scripts/fetch-engine.sh`
 (Git Bash) and `npm run dist:win`. Code signing is not configured yet.
 
