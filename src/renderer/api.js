@@ -142,6 +142,10 @@
       return request('/file/status');
     },
 
+    vcsDiff() {
+      return request('/vcs/diff', { query: { mode: 'git' } });
+    },
+
     sessionDiff(id) {
       return request('/session/' + encodeURIComponent(id) + '/diff');
     },

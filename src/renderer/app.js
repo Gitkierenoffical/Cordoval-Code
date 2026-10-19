@@ -1255,6 +1255,13 @@
     } catch (err) {
       fromStatus = [];
     }
+    let fromVcs = [];
+    try {
+      const data = await window.Api.vcsDiff();
+      fromVcs = Array.isArray(data) ? data : [];
+    } catch (err) {
+      fromVcs = [];
+    }
     if (requestId !== changesRequest) return;
     const byFile = {};
     function mergeEntry(entry, file) {
@@ -1281,6 +1288,7 @@
     }
     for (const entry of fromEvent) mergeEntry(entry);
     for (const entry of fromSession) mergeEntry(entry);
+    for (const entry of fromVcs) mergeEntry(entry);
     for (const entry of fromStatus) {
       if (!entry || !entry.path) continue;
       mergeEntry(entry, entry.path);
