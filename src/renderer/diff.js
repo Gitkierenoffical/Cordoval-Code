@@ -15,12 +15,13 @@
 
   function lineClass(line) {
     if (!line) return 'meta';
+    if (line.indexOf('--- ') === 0 || line.indexOf('+++ ') === 0) return 'meta';
+    if (line.indexOf('diff ') === 0 || line.indexOf('index ') === 0 || line.indexOf('Index:') === 0) return 'meta';
+    if (line.indexOf('===') === 0) return 'meta';
     const ch = line.charAt(0);
     if (ch === '+') return 'add';
     if (ch === '-') return 'del';
     if (ch === '@') return 'hunk';
-    if (line.indexOf('diff ') === 0 || line.indexOf('index ') === 0) return 'meta';
-    if (line.indexOf('--- ') === 0 || line.indexOf('+++ ') === 0) return 'meta';
     return '';
   }
 
