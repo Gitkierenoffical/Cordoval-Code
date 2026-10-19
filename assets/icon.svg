@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="180 172 664 664" width="1024" height="1024">
+<title>Cordoval Code</title>
+<!-- Adapted from the Cordoval logo: C mark kept, inner glyph replaced with a code mark. Transparent background. -->
+<defs>
+ <linearGradient id="mg" x1="0" y1="240" x2="0" y2="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1466FF"/><stop offset="1" stop-color="#0052F5"/></linearGradient>
+</defs>
+<g transform="translate(22 15)" fill="none" stroke="url(#mg)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M710.27 378.5 A243.8 243.8 0 1 0 700.42 616.5"/>
+ <path d="M440 412 L352 497 L440 582" stroke-width="52"/>
+ <path d="M548 396 L490 598" stroke-width="52"/>
+ <path d="M598 412 L686 497 L598 582" stroke-width="52"/>
+</g>
+</svg>
