@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src http://127.0.0.1:* ws://127.0.0.1:*; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Cordoval Code</title>
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app" hidden>
+    <header class="titlebar">
+      <div class="titlebar-brand">
+        <img class="brand-logo" src="../../assets/icon.svg" alt="Cordoval Code">
+        <span class="brand-name">Cordoval Code</span>
+      </div>
+      <div class="titlebar-project" id="titlebar-project" title=""></div>
+      <div class="titlebar-actions">
+        <button type="button" class="icon-btn" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 1Zm0 11a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 12Zm6.28-1.97a.75.75 0 0 1 0 1.06l-.7.71a.75.75 0 1 1-1.06-1.06l.7-.71a.75.75 0 0 1 1.06 0ZM4.48 10.97a.75.75 0 0 1 0 1.06l-.7.71a.75.75 0 0 1-1.07-1.06l.71-.71a.75.75 0 0 1 1.06 0ZM14 8a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 14 8ZM5 8a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 5 8Zm8.72-4.03a.75.75 0 0 1 0 1.06l-.7.71a.75.75 0 0 1-1.07-1.06l.71-.71a.75.75 0 0 1 1.06 0ZM5.25 4.03a.75.75 0 0 1 0 1.06l-.71.71a.75.75 0 1 1-1.06-1.06l.7-.71a.75.75 0 0 1 1.07 0ZM8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="btn-settings" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 4.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5Zm0 1.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5Zm5.9 2.2a.75.75 0 0 1-.2.58l-1.02.88a5.6 5.6 0 0 0 0 1.3l1.02.88a.75.75 0 0 1 .2.58c0 .77-.3 1.5-.83 2.04l-.35.35a.75.75 0 0 1-1.06 0l-1.02-.88a5.7 5.7 0 0 0-1.3 0l-1.02.88a.75.75 0 0 1-1.06 0l-.35-.35A2.9 2.9 0 0 1 5.37 12.2l-1.02-.88a.75.75 0 0 1-.2-.58c0-.23.08-.46.22-.64l1.02-.88a5.6 5.6 0 0 0 0-1.3l-1.02-.88a.75.75 0 0 1-.22-.64c0-.28.11-.55.3-.74l.35-.35a.75.75 0 0 1 1.06 0l1.02.88c.42-.16.86-.27 1.3-.32V4.85c-.48-.1-.94-.26-1.36-.47l-1.02-.88a.75.75 0 0 1 0-1.06l.35-.35A2.9 2.9 0 0 1 7.26 1.7l1.02.88c.4-.15.82-.25 1.24-.3l.4-1.2a.75.75 0 0 1 1.42 0l.4 1.2c.42.05.84.15 1.24.3l1.02-.88a.75.75 0 0 1 1.06 0l.35.35c.2.2.3.46.3.74v.02l-1.06.9c-.05.4-.05.82 0 1.22l1.06.9v.02c0 .28-.11.55-.3.74Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="body">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+          <button type="button" class="btn btn-ghost btn-block" id="btn-switch-project" title="Open a different project folder">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M1.5 3.5A1.5 1.5 0 0 1 3 2h3.38c.4 0 .78.16 1.06.44l.72.72H13A1.5 1.5 0 0 1 14.5 4.7V12a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12V3.5Zm1.5 0V12h10V4.7H8.94l-.94-.94H3.5v-.26h-.5Z"/></svg>
+            <span id="sidebar-project-name">Project</span>
+          </button>
+          <button type="button" class="btn btn-primary btn-block" id="btn-new-session">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 3.25a.75.75 0 0 1 .75.75v3.25H12a.75.75 0 0 1 0 1.5H8.75V12a.75.75 0 0 1-1.5 0V8.75H4a.75.75 0 0 1 0-1.5h3.25V4A.75.75 0 0 1 8 3.25Z"/></svg>
+            New session
+          </button>
+        </div>
+        <div class="sidebar-label">Sessions</div>
+        <div class="session-list" id="session-list"></div>
+      </aside>
+
+      <main class="chat" id="chat">
+        <div class="revert-banner" id="revert-banner" hidden>
+          <span id="revert-banner-text">Reverted to an earlier message.</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-unrevert">Restore</button>
+        </div>
+        <div class="permission-host" id="permission-host"></div>
+        <div class="messages" id="messages"></div>
+        <div class="empty-chat" id="empty-chat" hidden>
+          <p class="empty-chat-title">Start a conversation</p>
+          <p class="empty-chat-sub">Ask Cordoval Code to explain the project, fix a bug, or build a feature.</p>
+        </div>
+        <footer class="composer-wrap">
+          <div class="composer" id="composer">
+            <div class="composer-toolbar">
+              <div class="agent-toggle" role="group" aria-label="Agent mode">
+                <button type="button" class="agent-btn is-active" data-agent="build" id="btn-agent-build">Build</button>
+                <button type="button" class="agent-btn" data-agent="plan" id="btn-agent-plan">Plan</button>
+              </div>
+              <label class="model-picker-label">
+                <span class="sr-only">Model</span>
+                <select id="model-picker" class="model-picker" title="Model for this session"></select>
+              </label>
+              <button type="button" class="btn btn-danger btn-sm" id="btn-stop" hidden>Stop</button>
+            </div>
+            <textarea id="composer-input" class="composer-input" rows="3" placeholder="Message Cordoval Code..."></textarea>
+            <div class="composer-hint">Enter to send, Shift+Enter for a new line</div>
+          </div>
+        </footer>
+      </main>
+
+      <aside class="right-panel" id="right-panel">
+        <div class="right-tabs" role="tablist">
+          <button type="button" class="right-tab is-active" data-tab="files" role="tab">Files</button>
+          <button type="button" class="right-tab" data-tab="changes" role="tab">Changes</button>
+          <button type="button" class="right-tab" data-tab="search" role="tab">Search</button>
+          <button type="button" class="right-tab" data-tab="diagnostics" role="tab">Diagnostics</button>
+        </div>
+        <div class="right-body">
+          <section class="right-view is-active" id="view-files" data-tab="files">
+            <div class="right-toolbar">
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-files-refresh">Refresh</button>
+            </div>
+            <div class="file-tree" id="file-tree"></div>
+          </section>
+          <section class="right-view" id="view-changes" data-tab="changes">
+            <div class="right-toolbar">
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-changes-refresh">Refresh</button>
+            </div>
+            <div class="changes-list" id="changes-list"></div>
+          </section>
+          <section class="right-view" id="view-search" data-tab="search">
+            <div class="right-toolbar">
+              <input type="search" id="search-input" class="input" placeholder="Search in project" autocomplete="off">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-search-run">Search</button>
+            </div>
+            <div class="search-results" id="search-results"></div>
+          </section>
+          <section class="right-view" id="view-diagnostics" data-tab="diagnostics">
+            <div class="right-toolbar">
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-lsp-refresh">Refresh</button>
+            </div>
+            <div class="diagnostics-list" id="diagnostics-list"></div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <div class="terminal-dock" id="terminal-dock" hidden>
+      <div class="terminal-header">
+        <span class="terminal-title">Terminal</span>
+        <div class="terminal-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-terminal-fit">Fit</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-terminal-close" title="Close terminal">Close</button>
+        </div>
+      </div>
+      <div class="terminal-host" id="terminal-host"></div>
+    </div>
+
+    <footer class="statusbar">
+      <button type="button" class="statusbar-item" id="btn-terminal-toggle" title="Toggle terminal">
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M2.5 3A1.5 1.5 0 0 0 1 4.5v7A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 13.5 3h-11Zm0 1.5h11v7h-11v-7Zm1.9 1.9a.75.75 0 0 1 0 1.06L3.56 8.3l.84.84a.75.75 0 1 1-1.06 1.06l-1.37-1.37a.75.75 0 0 1 0-1.06L3.34 6.4a.75.75 0 0 1 1.06 0Zm4.6 0a.75.75 0 0 1 0 1.06l-.84.84.84.84a.75.75 0 1 1-1.06 1.06L6.33 9.1a.75.75 0 0 1 0-1.06l1.37-1.37a.75.75 0 0 1 1.06 0Z"/></svg>
+        Terminal
+      </button>
+      <div class="statusbar-spacer"></div>
+      <span class="statusbar-item statusbar-muted" id="status-engine">Engine starting...</span>
+    </footer>
+  </div>
+
+  <section class="welcome" id="welcome">
+    <div class="welcome-card">
+      <img class="welcome-logo" src="../../assets/icon.svg" alt="">
+      <h1 class="welcome-title">Cordoval Code</h1>
+      <p class="welcome-sub">Privacy-first desktop AI coding. Your keys stay on this device.</p>
+      <div class="welcome-actions">
+        <button type="button" class="btn btn-primary" id="btn-welcome-open">Open folder</button>
+        <button type="button" class="btn btn-secondary" id="btn-welcome-template">New project from template</button>
+      </div>
+      <div class="welcome-recent">
+        <div class="welcome-recent-label">Recent projects</div>
+        <div class="recent-list" id="recent-list"></div>
+        <p class="recent-empty" id="recent-empty" hidden>No recent projects yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" id="settings-backdrop" hidden>
+    <div class="modal modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <header class="modal-header">
+        <h2 id="settings-title">Settings</h2>
+        <button type="button" class="icon-btn" id="btn-settings-close" aria-label="Close settings">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4.03 4.03a.75.75 0 0 1 1.06 0L8 6.94l2.91-2.91a.75.75 0 1 1 1.06 1.06L9.06 8l2.91 2.91a.75.75 0 1 1-1.06 1.06L8 9.06l-2.91 2.91a.75.75 0 0 1-1.06-1.06L6.94 8 4.03 5.09a.75.75 0 0 1 0-1.06Z"/></svg>
+        </button>
+      </header>
+      <div class="modal-tabs" role="tablist">
+        <button type="button" class="modal-tab is-active" data-stab="providers">Providers</button>
+        <button type="button" class="modal-tab" data-stab="custom">Custom endpoints</button>
+        <button type="button" class="modal-tab" data-stab="appearance">Appearance</button>
+        <button type="button" class="modal-tab" data-stab="privacy">Privacy</button>
+      </div>
+      <div class="modal-body">
+        <section class="modal-view is-active" data-stab="providers" id="settings-providers"></section>
+        <section class="modal-view" data-stab="custom" id="settings-custom"></section>
+        <section class="modal-view" data-stab="appearance" id="settings-appearance">
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Theme</div>
+              <div class="setting-help">Light lavender is the default. Dark uses a deep indigo surface.</div>
+            </div>
+            <div class="theme-choice">
+              <label class="radio"><input type="radio" name="theme" value="light"> Light</label>
+              <label class="radio"><input type="radio" name="theme" value="dark"> Dark</label>
+            </div>
+          </div>
+        </section>
+        <section class="modal-view" data-stab="privacy" id="settings-privacy">
+          <p class="privacy-text">No Cordoval servers. No telemetry. Keys stay on this device.</p>
+          <p class="privacy-sub">API keys are stored with the OS keychain via Electron safeStorage. Prompts, files, and diffs are sent only to the local engine and the model provider you configure.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="templates-backdrop" hidden>
+    <div class="modal modal-templates" role="dialog" aria-modal="true" aria-labelledby="templates-title">
+      <header class="modal-header">
+        <h2 id="templates-title">New project from template</h2>
+        <button type="button" class="icon-btn" id="btn-templates-close" aria-label="Close templates">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4.03 4.03a.75.75 0 0 1 1.06 0L8 6.94l2.91-2.91a.75.75 0 1 1 1.06 1.06L9.06 8l2.91 2.91a.75.75 0 1 1-1.06 1.06L8 9.06l-2.91 2.91a.75.75 0 0 1-1.06-1.06L6.94 8 4.03 5.09a.75.75 0 0 1 0-1.06Z"/></svg>
+        </button>
+      </header>
+      <div class="modal-body templates-body">
+        <div class="templates-grid" id="templates-grid"></div>
+        <div class="templates-form">
+          <label class="field">
+            <span class="field-label">Project name</span>
+            <input type="text" id="template-name" class="input" placeholder="my-app" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">Parent folder</span>
+            <div class="field-row">
+              <input type="text" id="template-parent" class="input" placeholder="Choose a folder" readonly>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-template-browse">Browse</button>
+            </div>
+          </label>
+          <div class="templates-form-actions">
+            <span class="form-error" id="template-error" hidden></span>
+            <button type="button" class="btn btn-primary" id="btn-template-create">Create project</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="file-backdrop" hidden>
+    <div class="modal modal-file" role="dialog" aria-modal="true" aria-labelledby="file-title">
+      <header class="modal-header">
+        <h2 id="file-title">File</h2>
+        <button type="button" class="icon-btn" id="btn-file-close" aria-label="Close file">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4.03 4.03a.75.75 0 0 1 1.06 0L8 6.94l2.91-2.91a.75.75 0 1 1 1.06 1.06L9.06 8l2.91 2.91a.75.75 0 1 1-1.06 1.06L8 9.06l-2.91 2.91a.75.75 0 0 1-1.06-1.06L6.94 8 4.03 5.09a.75.75 0 0 1 0-1.06Z"/></svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <pre class="file-content" id="file-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-host" id="toast-host" aria-live="polite"></div>
+
+  <script src="../../node_modules/diff/dist/diff.min.js"></script>
+  <script src="../../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="api.js"></script>
+  <script src="diff.js"></script>
+  <script src="terminal.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
