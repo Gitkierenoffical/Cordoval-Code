@@ -798,56 +798,79 @@
     return btn;
   }
 
+  function prettyModelName(provider, id, model) {
+    const raw = (model && model.name && model.name !== id) ? String(model.name) : String(id);
+    let name = raw.replace(/[-_]free$/i, '').replace(/:free$/i, '');
+    if (name === raw.toLowerCase() || /^[a-z0-9.\-_/:]+$/.test(name)) {
+      name = name.split('/').pop().split(/[-_]/).map(function (w) {
+        if (/^v?\d/.test(w)) return w;
+        if (w.length <= 3 && /^[a-z]+$/.test(w) && ['glm', 'gpt', 'vl', 'ai'].indexOf(w) >= 0) return w.toUpperCase();
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }).join(' ');
+    }
+    return name;
+  }
+
+  function isFreeModel(provider, id, model) {
+    if (/(^|[-_:])free$/i.test(id)) return true;
+    const cost = model && model.cost;
+    return provider.id === 'opencode' && !!cost && Number(cost.input) === 0 && Number(cost.output) === 0;
+  }
+
+  function providerLabel(provider) {
+    const known = {
+      opencode: 'OpenCode Zen', openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
+      google: 'Google Gemini', groq: 'Groq', xai: 'xAI', ollama: 'Ollama', lmstudio: 'LM Studio',
+    };
+    return known[provider.id] || PROVIDER_LABELS[provider.id] || provider.name || provider.id;
+  }
+
   function renderModelPicker() {
     const select = els.modelPicker;
     clear(select);
-    const groups = {};
-    for (const provider of state.providers) {
-      groups[provider.id] = {
-        id: provider.id,
-        name: provider.name || PROVIDER_LABELS[provider.id] || provider.id,
-        models: [],
-      };
-    }
-    for (const provider of state.providers) {
-      const models = provider.models || {};
-      for (const key of Object.keys(models)) {
-        const model = models[key];
-        const id = (model && (model.id || model.name)) || key;
-        groups[provider.id].models.push({ id: String(id), name: String((model && model.name) || id) });
-      }
-    }
     const current = currentModel();
-    const ids = Object.keys(groups);
-    if (!ids.length) {
-      const option = document.createElement('option');
-      option.value = DEFAULT_MODEL.providerID + '/' + DEFAULT_MODEL.modelID;
-      option.textContent = DEFAULT_MODEL.providerID + ' / ' + DEFAULT_MODEL.modelID;
-      select.appendChild(option);
-      return;
-    }
-    for (const id of ids) {
-      const group = groups[id];
-      if (!group.models.length) {
-        group.models.push({ id: current.modelID, name: current.modelID });
-      }
-      const optgroup = document.createElement('optgroup');
-      optgroup.label = group.name;
-      const sorted = group.models.slice().sort(function (a, b) {
+    let matched = false;
+    const providers = state.providers.slice().sort(function (a, b) {
+      if (a.id === 'opencode') return -1;
+      if (b.id === 'opencode') return 1;
+      return providerLabel(a).localeCompare(providerLabel(b));
+    });
+    for (const provider of providers) {
+      const models = provider.models || {};
+      const list = Object.keys(models).map(function (key) {
+        const model = models[key];
+        const id = String((model && model.id) || key);
+        return { id: id, name: prettyModelName(provider, id, model), free: isFreeModel(provider, id, model) };
+      });
+      if (!list.length) continue;
+      list.sort(function (a, b) {
+        if (a.free !== b.free) return a.free ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-      for (const model of sorted) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = providerLabel(provider);
+      for (const model of list) {
         const option = document.createElement('option');
-        option.value = group.id + '/' + model.id;
-        option.textContent = model.name;
-        if (group.id === current.providerID && model.id === current.modelID) {
+        option.value = provider.id + '/' + model.id;
+        option.textContent = model.name + (model.free ? '  (Free)' : '');
+        option.title = provider.id + '/' + model.id;
+        if (provider.id === current.providerID && model.id === current.modelID) {
           option.selected = true;
+          matched = true;
         }
         optgroup.appendChild(option);
       }
       select.appendChild(optgroup);
     }
+    if (!matched) {
+      const option = document.createElement('option');
+      option.value = current.providerID + '/' + current.modelID;
+      option.textContent = prettyModelName({ id: current.providerID }, current.modelID) + (/free$/i.test(current.modelID) ? '  (Free)' : '');
+      option.selected = true;
+      select.insertBefore(option, select.firstChild);
+    }
   }
+
 
   function renderAgentToggle() {
     const agent = currentAgent();
@@ -948,6 +971,7 @@
     renderMessages();
     renderPermissions();
     await window.Api.connectEvents();
+    await refreshProviders();
     await checkVcs();
     await refreshSessions();
     if (!state.sessions.length && !opts.skipCreateSession) {
