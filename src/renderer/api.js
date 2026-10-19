@@ -142,6 +142,18 @@
       return request('/file/status');
     },
 
+    sessionDiff(id) {
+      return request('/session/' + encodeURIComponent(id) + '/diff');
+    },
+
+    vcs() {
+      return request('/vcs');
+    },
+
+    gitInit() {
+      return request('/project/git/init', { method: 'POST' });
+    },
+
     find(pattern) {
       return request('/find', { query: { pattern } });
     },

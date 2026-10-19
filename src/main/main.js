@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 
 const engine = require('./engine');
@@ -103,8 +104,25 @@ function scaffoldProject(templateId, parentDir, name) {
   const target = path.join(parent, folderName);
   if (fs.existsSync(target)) throw new Error('A folder with that name already exists.');
   fs.mkdirSync(target);
+  try {
+    spawnSync('git', ['init'], { cwd: target, stdio: 'ignore', timeout: 15000 });
+  } catch (err) {
+    // git is optional: the app degrades without repository-backed diffs and undo
+  }
   const template = templates.find(t => t.id === templateId) || null;
   return { path: target, template };
+}
+
+function windowSize() {
+  const fallback = { width: 1440, height: 900 };
+  const raw = String(process.env.CORDOVAL_WINDOW_SIZE || '').trim();
+  const match = raw.match(/^(\d{2,5})\s*[xX]\s*(\d{2,5})$/);
+  if (!match) return fallback;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return fallback;
+  if (width < 320 || height < 240 || width > 10000 || height > 10000) return fallback;
+  return { width, height };
 }
 
 function registerIpc() {
@@ -173,11 +191,12 @@ function registerIpc() {
 }
 
 function createWindow() {
+  const size = windowSize();
   win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 960,
-    minHeight: 600,
+    width: size.width,
+    height: size.height,
+    minWidth: Math.min(960, size.width),
+    minHeight: Math.min(600, size.height),
     show: false,
     title: 'Cordoval Code',
     backgroundColor: '#F4F2FB',

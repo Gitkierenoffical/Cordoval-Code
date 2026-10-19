@@ -41,6 +41,7 @@
     rightTab: 'files',
     fileTreeExpanded: {},
     renamingId: null,
+    vcsMissing: false,
   };
 
   const els = {};
@@ -578,16 +579,16 @@
     if (!part) return null;
     const type = String(part.type || 'text');
     if (type === 'step-start' || type === 'step-finish') {
-      const marker = el('div', 'part step-marker', type === 'step-start' ? 'Step' : 'Step end');
-      marker.dataset.partId = part.id;
-      return marker;
+      return null;
     }
     if (type === 'reasoning') {
+      const reasoningText = String(part.text == null ? '' : part.text);
+      if (!reasoningText.trim()) return null;
       const wrap = el('details', 'part reasoning');
       wrap.dataset.partId = part.id;
       const summary = el('summary');
       wrap.appendChild(summary);
-      const body = el('div', 'reasoning-body', part.text || '');
+      const body = el('div', 'reasoning-body', reasoningText);
       body.dataset.field = 'text';
       wrap.appendChild(body);
       return wrap;
@@ -943,9 +944,11 @@
     state.sessionId = null;
     state.permissions = {};
     state.diffs = {};
+    state.vcsMissing = false;
     renderMessages();
     renderPermissions();
     await window.Api.connectEvents();
+    await checkVcs();
     await refreshSessions();
     if (!state.sessions.length && !opts.skipCreateSession) {
       try {
@@ -1012,6 +1015,10 @@
         }
         if (id === state.sessionId) updateStopButton();
         renderSessions();
+        if (!busy && state.directory) {
+          loadFilesTree('');
+          refreshChanges();
+        }
         return;
       }
       case 'session.diff': {
@@ -1098,13 +1105,18 @@
     }
   }
 
+  let filesTreeRequest = 0;
+
   async function loadFilesTree(path) {
     if (!state.directory) return;
+    const requestId = ++filesTreeRequest;
     clear(els.fileTree);
     try {
       const entries = await window.Api.listFiles(path || '');
+      if (requestId !== filesTreeRequest) return;
       renderFileEntries(els.fileTree, Array.isArray(entries) ? entries : [], path || '');
     } catch (err) {
+      if (requestId !== filesTreeRequest) return;
       els.fileTree.appendChild(el('div', 'empty-note', errorMessage(err)));
     }
   }
@@ -1177,47 +1189,109 @@
     }
   }
 
+  function hasVcsRepository(info) {
+    if (!info) return false;
+    if (Array.isArray(info)) return info.some(hasVcsRepository);
+    if (typeof info !== 'object') return !!info;
+    if (info.repository || info.repo || info.vcs) return true;
+    return typeof info.branch === 'string' && !!info.branch;
+  }
+
+  async function checkVcs() {
+    state.vcsMissing = false;
+    if (!state.directory) return;
+    try {
+      const info = await window.Api.vcs();
+      state.vcsMissing = !hasVcsRepository(info);
+    } catch (err) {
+      state.vcsMissing = false;
+    }
+  }
+
+  function renderVcsNotice() {
+    if (!state.vcsMissing) return;
+    const note = el('div', 'vcs-notice');
+    note.appendChild(el('div', 'vcs-notice-text', 'Not a git repository. Initialise git to enable diffs and undo.'));
+    const btn = el('button', 'btn btn-secondary btn-sm', 'Initialise git');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      window.Api.gitInit()
+        .then(function () {
+          toast('Git repository initialised.');
+          return checkVcs();
+        })
+        .catch(function (err) {
+          toast(errorMessage(err), 'error');
+        })
+        .then(function () {
+          btn.disabled = false;
+          refreshChanges();
+        });
+    });
+    note.appendChild(btn);
+    els.changesList.appendChild(note);
+  }
+
+  let changesRequest = 0;
+
   async function refreshChanges() {
+    const requestId = ++changesRequest;
     clear(els.changesList);
     if (!state.directory) return;
-    let fromEvent = state.diffs[state.sessionId] || [];
+    const fromEvent = state.diffs[state.sessionId] || [];
+    let fromSession = [];
+    if (state.sessionId) {
+      try {
+        const data = await window.Api.sessionDiff(state.sessionId);
+        fromSession = Array.isArray(data) ? data : [];
+      } catch (err) {
+        fromSession = [];
+      }
+    }
     let fromStatus = [];
     try {
       fromStatus = await window.Api.fileStatus();
     } catch (err) {
       fromStatus = [];
     }
+    if (requestId !== changesRequest) return;
     const byFile = {};
-    for (const entry of fromEvent) {
-      if (!entry || !entry.file) continue;
-      byFile[entry.file] = {
-        file: entry.file,
-        before: entry.before,
-        after: entry.after,
-        additions: entry.additions || 0,
-        deletions: entry.deletions || 0,
-        hasPatch: true,
-      };
-    }
-    for (const entry of fromStatus) {
-      if (!entry || !entry.path) continue;
-      const existing = byFile[entry.path];
-      if (existing) {
-        existing.status = entry.status;
-        existing.additions = entry.added || existing.additions;
-        existing.deletions = entry.removed || existing.deletions;
-      } else {
-        byFile[entry.path] = {
-          file: entry.path,
-          before: '',
-          after: '',
-          additions: entry.added || 0,
-          deletions: entry.removed || 0,
-          status: entry.status,
+    function mergeEntry(entry, file) {
+      const key = file || (entry && entry.file);
+      if (!key) return;
+      let item = byFile[key];
+      if (!item) {
+        item = {
+          file: key,
+          additions: 0,
+          deletions: 0,
           hasPatch: false,
         };
+        byFile[key] = item;
+      }
+      if (!entry) return;
+      if (entry.before != null) item.before = entry.before;
+      if (entry.after != null) item.after = entry.after;
+      if (entry.patch) item.patch = String(entry.patch);
+      if (entry.status) item.status = entry.status;
+      if (entry.additions != null) item.additions = Number(entry.additions) || 0;
+      if (entry.deletions != null) item.deletions = Number(entry.deletions) || 0;
+      item.hasPatch = item.before != null || item.after != null || !!item.patch;
+    }
+    for (const entry of fromEvent) mergeEntry(entry);
+    for (const entry of fromSession) mergeEntry(entry);
+    for (const entry of fromStatus) {
+      if (!entry || !entry.path) continue;
+      mergeEntry(entry, entry.path);
+      const item = byFile[entry.path];
+      if (item) {
+        item.additions = Number(entry.added) || item.additions;
+        item.deletions = Number(entry.removed) || item.deletions;
+        item.status = entry.status || item.status;
       }
     }
+    renderVcsNotice();
     const list = Object.keys(byFile).sort().map(function (key) { return byFile[key]; });
     if (!list.length) {
       els.changesList.appendChild(el('div', 'empty-note', 'Working tree is clean.'));
@@ -1230,6 +1304,7 @@
       const stat = el('span', 'change-stat');
       stat.innerHTML = '<span class="add">+' + item.additions + '</span> <span class="del">-' + item.deletions + '</span>';
       header.appendChild(stat);
+      if (item.status) header.appendChild(el('span', 'change-status', item.status));
       card.appendChild(header);
       const body = el('div', 'change-file-body');
       body.hidden = !item.hasPatch;

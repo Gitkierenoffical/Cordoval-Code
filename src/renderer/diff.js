@@ -26,11 +26,16 @@
 
   function buildPatch(entry) {
     const file = String(entry.file || 'file');
-    const before = entry.before == null ? '' : String(entry.before);
-    const after = entry.after == null ? '' : String(entry.after);
-    if (typeof Diff !== 'undefined' && typeof Diff.createTwoFilesPatch === 'function') {
-      return Diff.createTwoFilesPatch(file, file, before, after, '', '', { context: 3 });
+    const hasBefore = entry.before != null;
+    const hasAfter = entry.after != null;
+    if (hasBefore || hasAfter) {
+      const before = hasBefore ? String(entry.before) : '';
+      const after = hasAfter ? String(entry.after) : '';
+      if (typeof Diff !== 'undefined' && typeof Diff.createTwoFilesPatch === 'function') {
+        return Diff.createTwoFilesPatch(file, file, before, after, '', '', { context: 3 });
+      }
     }
+    if (entry.patch) return String(entry.patch);
     return '';
   }
 

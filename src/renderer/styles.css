@@ -994,6 +994,33 @@ button {
 .change-stat .add { color: var(--ok); }
 .change-stat .del { color: var(--danger); }
 
+.change-status {
+  color: var(--faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.vcs-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--text);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+}
+
+.vcs-notice-text {
+  flex: 1;
+  min-width: 180px;
+}
+
 .search-result {
   display: block;
   width: 100%;
