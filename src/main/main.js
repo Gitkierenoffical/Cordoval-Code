@@ -156,6 +156,11 @@ function registerIpc() {
     return merged;
   });
 
+  ipcMain.handle('app:initialProject', () => {
+    const arg = process.argv.find(a => a.startsWith('--project='));
+    return arg ? path.resolve(arg.slice('--project='.length)) : null;
+  });
+
   ipcMain.handle('templates:list', () => listTemplates());
 
   ipcMain.handle('scaffold:create', (event, templateId, parentDir, name) => scaffoldProject(templateId, parentDir, name));

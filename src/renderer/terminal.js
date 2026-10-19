@@ -112,10 +112,10 @@
     }, 120);
   }
 
-  function connectSocket(id) {
+  async function connectSocket(id) {
     teardownSocket();
     if (!window.Api) return;
-    const url = window.Api.ptySocketUrl(id);
+    const url = await window.Api.ptySocketUrl(id);
     let ws;
     try {
       ws = new WebSocket(url);
@@ -169,7 +169,7 @@
         writeStatus('Engine did not return a pty id.');
         return;
       }
-      connectSocket(ptyId);
+      await connectSocket(ptyId);
     } catch (err) {
       writeStatus('Could not start terminal: ' + (err && err.message ? err.message : 'error'));
     }

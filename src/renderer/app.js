@@ -1874,6 +1874,12 @@
 
     await reloadKeyState();
     state.ready = true;
+    try {
+      const initial = await window.cordoval.initialProject();
+      if (initial) await openProject(initial);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
   }
 
   boot().catch(function (err) {

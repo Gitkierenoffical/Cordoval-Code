@@ -15,5 +15,6 @@ contextBridge.exposeInMainWorld('cordoval', {
   setSettings: obj => ipcRenderer.invoke('settings:set', obj),
   templates: () => ipcRenderer.invoke('templates:list'),
   scaffold: (templateId, parentDir, name) => ipcRenderer.invoke('scaffold:create', templateId, parentDir, name),
+  initialProject: () => ipcRenderer.invoke('app:initialProject'),
   openrouterSignIn: () => ipcRenderer.invoke('oauth:openrouter'),
 });

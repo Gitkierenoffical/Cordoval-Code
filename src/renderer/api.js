@@ -131,7 +131,7 @@
     },
 
     listFiles(path) {
-      return request('/file', { query: { path: path || '' } });
+      return request('/file', { query: { path: path || '.' } });
     },
 
     fileContent(path) {
@@ -169,10 +169,16 @@
       return request('/pty/' + encodeURIComponent(id), { method: 'DELETE' });
     },
 
-    ptySocketUrl(id) {
+    async ptySocketUrl(id) {
       const base = engineUrl();
+      let ticket = null;
+      try {
+        const t = await request('/pty/' + encodeURIComponent(id) + '/connect-token', { method: 'POST' });
+        ticket = t && t.ticket;
+      } catch (err) {}
       const url = new URL(base.replace(/^http/, 'ws') + '/pty/' + encodeURIComponent(id) + '/connect');
       if (directory) url.searchParams.set('directory', directory);
+      if (ticket) url.searchParams.set('ticket', ticket);
       return url.toString();
     },
 
