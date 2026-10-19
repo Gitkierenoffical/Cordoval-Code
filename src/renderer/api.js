@@ -43,7 +43,7 @@
     const opts = options || {};
     const init = {
       method: opts.method || 'GET',
-      headers: {},
+      headers: Object.assign({}, opts.headers || {}),
     };
     if (opts.body !== undefined) {
       init.headers['Content-Type'] = 'application/json';
@@ -185,7 +185,7 @@
       const base = engineUrl();
       let ticket = null;
       try {
-        const t = await request('/pty/' + encodeURIComponent(id) + '/connect-token', { method: 'POST' });
+        const t = await request('/pty/' + encodeURIComponent(id) + '/connect-token', { method: 'POST', headers: { 'x-opencode-ticket': '1' } });
         ticket = t && t.ticket;
       } catch (err) {}
       const url = new URL(base.replace(/^http/, 'ws') + '/pty/' + encodeURIComponent(id) + '/connect');

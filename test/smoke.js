@@ -3,8 +3,8 @@ const { _electron: electron } = require('playwright-core');
 const path = require('path');
 const fs = require('fs');
 const shots = path.join(__dirname, '..', 'screenshots');
-const proj = process.env.SMOKE_DIR || '/tmp/cordoval-smoke';
-fs.rmSync(proj, { recursive: true, force: true }); fs.mkdirSync(proj, { recursive: true });
+const proj = process.env.SMOKE_DIR || ('/tmp/cordoval-smoke-' + Date.now());
+fs.rmSync(proj, { recursive: true, force: true }); fs.mkdirSync(proj, { recursive: true }); if (!process.env.NO_GIT) require('child_process').spawnSync('git', ['init', '-q'], { cwd: proj });
 const shot = (p, n) => p.screenshot({ path: path.join(shots, n) }).then(() => console.log('shot', n));
 (async () => {
   const app = await electron.launch({ recordVideo: undefined,
@@ -15,11 +15,14 @@ const shot = (p, n) => p.screenshot({ path: path.join(shots, n) }).then(() => co
   const page = await app.firstWindow();
   page.on('console', m => { if (m.type() === 'error') console.log('console.error', m.text()); });
   page.on('pageerror', e => console.log('pageerror', e.message));
+  await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
+  await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.setSize(1440, 900); });
   await page.waitForTimeout(8000);
   await shot(page, (process.env.PREFIX || '') + '01-start.png');
   const step = process.env.STEP || 'all';
   if (step === 'start') { await app.close(); return; }
   const prompt = process.env.PROMPT || 'Create a tiny static web project here: index.html with a heading "Hello from Cordoval Code", style.css with a lavender background, and app.js that logs "ready". Keep it short.';
+  if (process.env.MODEL) await page.selectOption('#model-picker', process.env.MODEL).catch(e => console.log('model select failed', e.message));
   await page.fill('#composer-input', prompt);
   await page.press('#composer-input', 'Enter');
   await page.waitForTimeout(6000);
@@ -38,7 +41,7 @@ const shot = (p, n) => p.screenshot({ path: path.join(shots, n) }).then(() => co
   await shot(page, '04-changes-diff.png');
   await page.click('.right-tab[data-tab="files"]'); await page.click('#btn-files-refresh'); await page.waitForTimeout(2000);
   await page.click('#btn-terminal-toggle'); await page.waitForTimeout(3000);
-  await page.keyboard.type('ls -la\n'); await page.waitForTimeout(2000);
+  await page.click('#terminal-host').catch(()=>{}); await page.keyboard.type('ls -la\n'); await page.waitForTimeout(2000);
   await shot(page, '05-files-terminal.png');
   await page.click('#btn-settings'); await page.waitForTimeout(1500);
   await shot(page, '06-settings.png');

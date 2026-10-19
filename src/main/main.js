@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, session } = require('electron');
 
 const engine = require('./engine');
 const keys = require('./keys');
@@ -229,6 +229,18 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // The local engine only trusts same-origin callers; the UI is loaded from file://,
+  // so present the engine's own origin on requests to the loopback engine.
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['http://127.0.0.1/*', 'ws://127.0.0.1/*', 'http://127.0.0.1:*/*', 'ws://127.0.0.1:*/*'] },
+    (details, callback) => {
+      try {
+        const u = new URL(details.url);
+        details.requestHeaders.Origin = 'http://' + u.host;
+      } catch (err) {}
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
   registerIpc();
   createWindow();
   startEngine().catch(() => {
