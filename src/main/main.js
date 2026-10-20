@@ -8,12 +8,13 @@ const { app, BrowserWindow, dialog, ipcMain, shell, session } = require('electro
 const engine = require('./engine');
 const keys = require('./keys');
 const oauth = require('./oauth');
+const updater = require('./updater');
 const lsp = require('./lsp');
 
 let win = null;
 let enginePromise = null;
 
-const DEFAULT_SETTINGS = { theme: 'light' };
+const DEFAULT_SETTINGS = { theme: 'light', updatesEnabled: false, updateFeed: '' };
 
 function userDataFile(name) {
   return path.join(app.getPath('userData'), name);
@@ -162,6 +163,12 @@ function registerIpc() {
     return keys.deleteKey(provider);
   });
 
+  ipcMain.handle('update:check', () => updater.check({ ...DEFAULT_SETTINGS, ...readSettings() }));
+  ipcMain.handle('update:download', () => updater.download());
+  ipcMain.handle('update:install', () => updater.install());
+  ipcMain.handle('update:status', () => updater.status());
+  ipcMain.handle('app:version', () => app.getVersion());
+  updater.onStatus((st) => { if (win && !win.isDestroyed()) win.webContents.send('update:status', st); });
   ipcMain.handle('keys:storage', () => keys.storageStatus());
   ipcMain.handle('keys:getCustom', () => keys.getCustom());
 
@@ -271,6 +278,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  setTimeout(() => {
+    const st = { ...DEFAULT_SETTINGS, ...readSettings() };
+    if (st.updatesEnabled && st.updateFeed) updater.check(st).catch(() => {});
+  }, 15000);
   // The local engine only trusts same-origin callers; the UI is loaded from file://,
   // so present the engine's own origin on requests to the loopback engine.
   session.defaultSession.webRequest.onBeforeSendHeaders(

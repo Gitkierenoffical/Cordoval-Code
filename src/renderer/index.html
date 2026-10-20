@@ -186,6 +186,7 @@
         <button type="button" class="modal-tab is-active" data-stab="providers">Providers</button>
         <button type="button" class="modal-tab" data-stab="custom">Custom endpoints</button>
         <button type="button" class="modal-tab" data-stab="appearance">Appearance</button>
+        <button type="button" class="modal-tab" data-stab="updates">Updates</button>
         <button type="button" class="modal-tab" data-stab="privacy">Privacy</button>
       </div>
       <div class="modal-body">
@@ -202,6 +203,19 @@
               <label class="radio"><input type="radio" name="theme" value="dark"> Dark</label>
             </div>
           </div>
+        </section>
+        <section class="modal-view" data-stab="updates" id="settings-updates">
+          <p class="privacy-sub">Cordoval Code version <span id="app-version">-</span>. Updates are off by default and nothing is contacted until you turn them on and set a feed.</p>
+          <label class="check-row"><input type="checkbox" id="updates-enabled"> Check for updates automatically at start-up</label>
+          <label class="field-label" for="update-feed">Update feed URL (electron-builder generic feed, https)</label>
+          <input type="text" class="input" id="update-feed" placeholder="https://example.org/cordoval-code/updates" autocomplete="off">
+          <div class="update-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-update-save">Save</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-update-check">Check for updates</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-update-download" hidden>Download</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-update-install" hidden>Restart and install</button>
+          </div>
+          <p class="privacy-sub" id="update-status">Updates are off.</p>
         </section>
         <section class="modal-view" data-stab="privacy" id="settings-privacy">
           <p class="privacy-text">No Cordoval servers. No telemetry. Keys stay on this device.</p>
@@ -267,6 +281,7 @@
   <script src="terminal.js"></script>
   <script src="editor.js"></script>
   <script src="worktrees.js"></script>
+  <script src="updates.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

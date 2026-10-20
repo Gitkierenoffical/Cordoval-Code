@@ -55,7 +55,12 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Cordoval Code"
     },
-    "publish": null,
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.invalid/cordoval-code"
+      }
+    ],
     "appx": {
       "identityName": "Cordoval.CordovalCode",
       "publisher": "CN=Cordoval",
@@ -77,6 +82,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "diff": "^9.0.0",
+    "electron-updater": "^6.8.9",
     "marked": "^18.1.1",
     "monaco-editor": "^0.52.2",
     "pyright": "^1.1.414",
