@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "dist:linux": "electron-builder --linux AppImage --publish never",
-    "dist:win": "electron-builder --win nsis --x64 --publish never"
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:msix": "bash scripts/build-msix.sh"
   },
   "build": {
     "appId": "app.cordoval.code",
@@ -49,7 +50,18 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Cordoval Code"
     },
-    "publish": null
+    "publish": null,
+    "appx": {
+      "identityName": "Cordoval.CordovalCode",
+      "publisher": "CN=Cordoval",
+      "publisherDisplayName": "Cordoval",
+      "displayName": "Cordoval Code",
+      "applicationId": "CordovalCode",
+      "backgroundColor": "transparent",
+      "languages": [
+        "en-GB"
+      ]
+    }
   },
   "devDependencies": {
     "electron": "^33.4.11",
