@@ -51,9 +51,9 @@
   let authStarted = {};
   let loadedOnce = false;
 
-  let mcpForm = null; // {name, entry, isNew}
-  let agentForm = null; // {name, scope, mode, isNew, fields}
-  let commandForm = null; // {name, scope, mode, isNew, fields}
+  let mcpForm = null;
+  let agentForm = null;
+  let commandForm = null;
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -658,16 +658,19 @@
     const actions = el('div');
     actions.style.cssText = FLEX_CSS + ' margin-top:10px; flex-wrap:wrap;';
     const enabled = !entry || entry.enabled !== false;
+    const fromConfig = !!entry;
 
-    actions.appendChild(actionButton(enabled ? 'Disable' : 'Enable', 'btn btn-secondary btn-sm', function () {
-      toggleMcp(name, entry);
-    }));
+    if (fromConfig) {
+      actions.appendChild(actionButton(enabled ? 'Disable' : 'Enable', 'btn btn-secondary btn-sm', function () {
+        toggleMcp(name, entry);
+      }));
+    }
     if (enabled) {
       if (status === 'connected') {
         actions.appendChild(actionButton('Disconnect', 'btn btn-secondary btn-sm', function () {
           disconnectMcp(name);
         }));
-      } else if (status !== 'disabled') {
+      } else if (status && status !== 'disabled') {
         actions.appendChild(actionButton('Connect', 'btn btn-secondary btn-sm', function () {
           connectMcp(name);
         }));
@@ -687,13 +690,15 @@
         }
       }
     }
-    actions.appendChild(actionButton('Edit', 'btn btn-ghost btn-sm', function () {
-      mcpForm = { name, entry: deepCopy(entry || {}), isNew: false };
-      renderActive();
-    }));
-    actions.appendChild(actionButton('Remove', 'btn btn-ghost btn-sm', function () {
-      removeMcp(name);
-    }, 'color: var(--danger, #dc2626);'));
+    if (fromConfig) {
+      actions.appendChild(actionButton('Edit', 'btn btn-ghost btn-sm', function () {
+        mcpForm = { name, entry: deepCopy(entry), isNew: false };
+        renderActive();
+      }));
+      actions.appendChild(actionButton('Remove', 'btn btn-ghost btn-sm', function () {
+        removeMcp(name);
+      }, 'color: var(--danger, #dc2626);'));
+    }
     card.appendChild(actions);
     return card;
   }
@@ -892,15 +897,15 @@
         errLine.textContent = 'Invalid name. Use letters, digits, dots, underscores or hyphens, starting with a letter or digit.';
         return;
       }
-      if (name !== mcpForm.name && !isNew && false) { /* name stays fixed when editing a known config entry */ }
       const next = deepCopy(config);
       const servers = next.mcp && typeof next.mcp === 'object' ? next.mcp : (next.mcp = {});
-      if (isNew && servers[name]) {
+      if (servers[name] && (isNew || (!isNew && name !== mcpForm.name))) {
         errLine.textContent = 'A server named "' + name + '" already exists.';
         return;
       }
       const built = current();
       if (!built) return;
+      if (!isNew && name !== mcpForm.name) delete servers[mcpForm.name];
       servers[name] = built;
       mcpForm = null;
       await saveConfig(next);
@@ -949,7 +954,6 @@
         return out;
       }
     }
-    view.appendChild(formActions(save));
   }
 
   // ---- Tab 2: Agents ----
@@ -1087,7 +1091,6 @@
     if (mode === 'edit') {
       data = readAgentSource(rec);
       if (!data) {
-        // Global agent: build from the config entry.
         const cfgAgents = config.agent && typeof config.agent === 'object' ? config.agent : {};
         const entry = cfgAgents[rec.name] && typeof cfgAgents[rec.name] === 'object' ? deepCopy(cfgAgents[rec.name]) : {};
         data = {
@@ -1148,14 +1151,15 @@
     toolWrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; border:1px solid var(--border, #e5e7eb); border-radius:8px; padding:10px; max-height:180px; overflow-y:auto;';
     if (!toolIds.length) toolWrap.appendChild(el('span', null, 'Tool list unavailable.'));
     for (const id of Object.keys(toolState).sort()) {
-      const box = checkboxRow(id, toolState[id]);
       const chip = el('label');
       chip.style.cssText = 'display:inline-flex; align-items:center; gap:5px; font-size:12px; border:1px solid var(--border, #e5e7eb); border-radius:999px; padding:3px 10px;';
-      box.box.id = '';
-      chip.appendChild(box.box);
+      const box = el('input');
+      box.type = 'checkbox';
+      box.checked = toolState[id];
+      chip.appendChild(box);
       chip.appendChild(el('span', null, id));
       toolWrap.appendChild(chip);
-      toolBoxes.push({ id, box: box.box });
+      toolBoxes.push({ id, box });
     }
     const permSelects = {};
     for (const permKey of ['edit', 'bash', 'webfetch']) {
@@ -1190,6 +1194,7 @@
 
     const errLine = el('p');
     errLine.style.cssText = 'margin:0 0 10px; font-size:12px; color:var(--danger, #dc2626);';
+    agentForm.errLine = errLine;
     view.appendChild(errLine);
     view.appendChild(formActions(saveAgentForm, cancelAgentForm, data.isNew ? 'Create' : 'Save'));
   }
@@ -1203,15 +1208,10 @@
     const data = agentForm;
     const fields = data.fields;
     const name = String(fields.name.value || '').trim();
-    const errHolder = dom.views.agents.querySelector('p');
+    const errHolder = agentForm.errLine || dom.views.agents.querySelector('p');
     if (!validName(name)) {
-      if (errHolder) errHolder.textContent = 'Invalid name. Use letters, digits, dots, underscores or hyphens, starting with a letter or digit.';
+      errHolder.textContent = 'Invalid name. Use letters, digits, dots, underscores or hyphens, starting with a letter or digit.';
       return;
-    }
-    if (!data.isNew && name !== data.name) {
-      if (data.hasProject || data.isNew === false && data.scope !== 'global') {
-        // Renaming a project agent: handled below.
-      }
     }
 
     const tools = {};
@@ -1228,7 +1228,7 @@
     if (tempRaw !== '') {
       temperature = Number(tempRaw);
       if (!Number.isFinite(temperature)) {
-        if (errHolder) errHolder.textContent = 'Temperature must be a number.';
+        errHolder.textContent = 'Temperature must be a number.';
         return;
       }
     }
@@ -1249,31 +1249,31 @@
       };
       if (model) cfgAgents[name].model = model;
       if (temperature !== undefined) cfgAgents[name].temperature = temperature;
-      cfgAgents[name].tools = tools;
-      cfgAgents[name].permission = permission;
-      if (!data.isNew && data.scope === 'global' && data.name && data.name !== name && cfgAgents[data.name] && !cfgAgents[data.name].builtIn) {
+      if (Object.keys(tools).length) cfgAgents[name].tools = tools;
+      else cfgAgents[name].tools = {};
+      if (Object.keys(permission).length) cfgAgents[name].permission = permission;
+      if (!data.isNew && data.scope === 'global' && data.name && data.name !== name && cfgAgents[data.name]) {
         delete cfgAgents[data.name];
       }
       agentForm = null;
       await saveConfig(next);
+      if (!data.isNew && data.scope === 'project' && data.existingFile) {
+        const dir = projectDir();
+        if (dir) {
+          try {
+            await window.cordoval.deleteProjectFile(dir, 'agent', String(data.existingFile));
+          } catch (err) { /* best effort */ }
+        }
+      }
+      await fetchProjectFiles();
+      renderActive();
       return;
     }
 
-    // Project agent file.
     const dir = projectDir();
     if (!dir) {
-      if (errHolder) errHolder.textContent = 'Open a project first to save agents in this project.';
+      errHolder.textContent = 'Open a project first to save agents in this project.';
       return;
-    }
-    const preservedTools = {};
-    for (const key of Object.keys(data.tools || {})) {
-      if (data.tools[key] && typeof data.tools[key] === 'object') continue;
-      if (!Object.keys(tools).concat(Object.keys(toolIds)).some(function (k) { return k === key; })) {
-        // Keep any tool that came from an existing file and is not offered as a checkbox.
-      } else {
-        continue;
-      }
-      preservedTools[key] = !!data.tools[key];
     }
     const permissionOut = Object.assign({}, permission);
     if (data.permission) {
@@ -1286,13 +1286,20 @@
     front.push({ description, mode });
     if (model) front.push({ model });
     if (temperature !== undefined) front.push({ temperature });
-    front.push({ tools });
-    front.push({ permission: permissionOut });
+    if (Object.keys(tools).length) front.push({ tools });
+    if (Object.keys(permissionOut).length) front.push({ permission: permissionOut });
     const nameChanged = !data.isNew && data.existingFile && stripMd(String(data.existingFile)) !== name;
-    if (nameChanged) {
-      try {
-        await window.cordoval.deleteProjectFile(dir, 'agent', String(data.existingFile));
-      } catch (err) { /* best effort */ }
+    if (nameChanged || (!data.isNew && data.scope === 'global' && data.name)) {
+      if (nameChanged) {
+        try {
+          await window.cordoval.deleteProjectFile(dir, 'agent', String(data.existingFile));
+        } catch (err) { /* best effort */ }
+      }
+      if (!data.isNew && data.scope === 'global' && data.name) {
+        const cleanup = deepCopy(config);
+        delete cleanup.agent[data.name];
+        await saveConfig(cleanup);
+      }
     }
     const content = frontmatterText(front) + '\n\n' + prompt + '\n';
     await writeProjectFile(dir, 'agent', ensureMd(name), content);
@@ -1327,11 +1334,9 @@
 
   function commandRoster() {
     const map = {};
-    const serverRecords = {};
     for (const rec of commandsList) {
       if (!rec || !rec.name) continue;
       const name = String(rec.name);
-      serverRecords[name] = rec;
       map[name] = { name, description: rec.description || '', template: rec.template || '', hasGlobal: false, hasProject: false, file: null };
     }
     const cfgCommands = config.command && typeof config.command === 'object' ? config.command : {};
@@ -1462,13 +1467,8 @@
       model = typeof entry.model === 'string' ? entry.model : '';
       subtask = entry.subtask === true;
       template = typeof entry.template === 'string' ? entry.template : '';
-      if (serverAgentsNeeded()) { /* populated above */ }
     }
     return { scope, isNew, existingFile, description, agent, model, subtask, template };
-  }
-
-  function serverAgentsNeeded() {
-    return agentsList.filter(function (a) { return a && a.name; });
   }
 
   function openCommandForm(rec, mode) {
@@ -1526,6 +1526,7 @@
 
     const errLine = el('p');
     errLine.style.cssText = 'margin:0 0 10px; font-size:12px; color:var(--danger, #dc2626);';
+    commandForm.errLine = errLine;
     view.appendChild(errLine);
     view.appendChild(formActions(saveCommandForm, cancelCommandForm, data.isNew ? 'Create' : 'Save'));
   }
@@ -1538,10 +1539,10 @@
   async function saveCommandForm() {
     const data = commandForm;
     const fields = data.fields;
-    const errHolder = dom.views.commands.querySelector('p');
+    const errHolder = commandForm.errLine || dom.views.commands.querySelector('p');
     const name = String(fields.name.value || '').trim();
     if (!validName(name)) {
-      if (errHolder) errHolder.textContent = 'Invalid name. Use letters, digits, dots, underscores or hyphens, starting with a letter or digit.';
+      errHolder.textContent = 'Invalid name. Use letters, digits, dots, underscores or hyphens, starting with a letter or digit.';
       return;
     }
     const description = String(fields.description.value || '').trim();
@@ -1566,12 +1567,22 @@
       }
       commandForm = null;
       await saveConfig(next);
+      if (!data.isNew && data.scope === 'project' && data.existingFile) {
+        const dir = projectDir();
+        if (dir) {
+          try {
+            await window.cordoval.deleteProjectFile(dir, 'command', String(data.existingFile));
+          } catch (err) { /* best effort */ }
+        }
+      }
+      await fetchProjectFiles();
+      renderActive();
       return;
     }
 
     const dir = projectDir();
     if (!dir) {
-      if (errHolder) errHolder.textContent = 'Open a project first to save commands in this project.';
+      errHolder.textContent = 'Open a project first to save commands in this project.';
       return;
     }
     const front = [];
@@ -1581,10 +1592,17 @@
     if (subtask) front.push({ subtask: true });
     const content = frontmatterText(front) + '\n\n' + template + '\n';
     const nameChanged = !data.isNew && data.existingFile && stripMd(String(data.existingFile)) !== name;
-    if (nameChanged) {
-      try {
-        await window.cordoval.deleteProjectFile(dir, 'command', String(data.existingFile));
-      } catch (err) { /* best effort */ }
+    if (nameChanged || (!data.isNew && data.scope === 'global' && data.name)) {
+      if (nameChanged) {
+        try {
+          await window.cordoval.deleteProjectFile(dir, 'command', String(data.existingFile));
+        } catch (err) { /* best effort */ }
+      }
+      if (!data.isNew && data.scope === 'global' && data.name) {
+        const cleanup = deepCopy(config);
+        delete cleanup.command[data.name];
+        await saveConfig(cleanup);
+      }
     }
     await writeProjectFile(dir, 'command', ensureMd(name), content);
     commandForm = null;
@@ -1621,14 +1639,13 @@
     const rows = {};
     let bashDefault = perm.bash;
     if (bashDefault && typeof bashDefault === 'object' && !Array.isArray(bashDefault)) {
-      bashDefault = bashDefault['*'] !== undefined ? bashDefault['*'] : '';
+      bashDefault = bashDefault['*'];
     }
     for (const tool of PERM_TOOLS) {
-      const value = typeof perm[tool] === 'string' ? perm[tool] : 'default';
-      rows[tool] = ['allow', 'ask', 'deny', 'default'].indexOf(value) >= 0 ? value : 'default';
+      const value = typeof perm[tool] === 'string' ? perm[tool] : '';
+      rows[tool] = ['allow', 'ask', 'deny'].indexOf(value) >= 0 ? value : 'default';
     }
     rows.bash = typeof bashDefault === 'string' && ['allow', 'ask', 'deny'].indexOf(bashDefault) >= 0 ? bashDefault : 'default';
-    // bash tools should also resolve to 'default' if unset, but keep explicit value for '*'.
     const bashRules = [];
     const bashConfig = perm.bash && typeof perm.bash === 'object' && !Array.isArray(perm.bash) ? perm.bash : null;
     if (bashConfig) {
@@ -1639,8 +1656,7 @@
         bashRules.push({ pattern: String(pattern), action });
       }
     }
-    const preserved = deepCopy(perm);
-    return { rows, bashRules, preserved, preservedKeyMap: Object.keys(preserved) };
+    return { rows, bashRules };
   }
 
   function renderPermissionsList(view) {
@@ -1665,7 +1681,7 @@
         { value: 'ask', label: 'Ask' },
         { value: 'deny', label: 'Deny' },
         { value: 'default', label: 'Default' },
-      ], tool === 'bash' ? (draft.rows[tool] === 'default' ? 'default' : draft.rows[tool]) : draft.rows[tool]);
+      ], draft.rows[tool]);
       sel.style.width = '140px';
       card.appendChild(left);
       card.appendChild(sel);
@@ -1750,7 +1766,6 @@
   async function openModal(tab) {
     buildModal();
     if (!dom.backdrop.hidden) {
-      // already open
       if (tab && TABS.indexOf(tab) >= 0) setTab(tab);
       return;
     }
@@ -1773,7 +1788,6 @@
       toast('Could not load customisation data: ' + errMsg(err), 'error');
     }
     renderActive();
-    if (target !== active) setTab(target);
   }
 
   function init() {
