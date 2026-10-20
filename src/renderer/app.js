@@ -2496,6 +2496,7 @@
         toast(errorMessage(err), 'error');
       });
     });
+    $('btn-welcome-settings').addEventListener('click', function () { openSettings(); });
     $('btn-welcome-template').addEventListener('click', function () {
       openTemplates().catch(function (err) {
         toast(errorMessage(err), 'error');
