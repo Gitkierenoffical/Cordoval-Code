@@ -6,7 +6,7 @@ const path = require('path');
   const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await page.waitForTimeout(6000);
-  await page.click('#btn-settings'); await page.click('.modal-tab[data-stab="updates"]');
+  await page.click('#btn-welcome-settings'); await page.click('.modal-tab[data-stab="updates"]');
   const before = await page.textContent('#update-status');
   await page.check('#updates-enabled'); await page.fill('#update-feed', process.env.FEED || 'http://127.0.0.1:8765');
   await page.click('#btn-update-check');
