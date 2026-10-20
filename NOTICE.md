@@ -28,3 +28,4 @@ SOFTWARE.
 Also bundled: Electron (MIT), xterm.js (MIT), marked (MIT), jsdiff (BSD-3-Clause).
 
 - Colour themes in src/renderer/themes-data.js are derived from OpenCode's desktop themes (packages/ui/src/theme/themes), MIT licence, Copyright (c) 2025 opencode.
+- File icons (assets/file-icons.svg, src/renderer/file-icons.js) and the Inter font (assets/fonts/Inter.ttf, SIL Open Font Licence 1.1) come from OpenCode's packages/ui (MIT). Design tokens (type scale, radii, shadows) follow packages/ui/src/styles/theme.css.

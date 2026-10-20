@@ -1569,6 +1569,19 @@
     }
   }
 
+  // Coloured file-type icons from OpenCode's sprite sheet.
+  function fileIcon(path, isDir, open) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'file-icon');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS(NS, 'use');
+    const name = window.FileIcons ? window.FileIcons.name(path, isDir ? 'directory' : 'file', open) : (isDir ? 'Folder' : 'Document');
+    use.setAttribute('href', (window.FileIcons ? window.FileIcons.sprite : '../../assets/file-icons.svg') + '#' + name);
+    svg.appendChild(use);
+    return svg;
+  }
+
   function renderFileEntries(container, entries, parentPath) {
     const dirs = entries.filter(function (e) { return e.type === 'directory'; });
     const files = entries.filter(function (e) { return e.type !== 'directory'; });
@@ -1579,12 +1592,7 @@
       const path = entry.path || (parentPath ? parentPath + '/' + entry.name : entry.name);
       const btn = el('button', 'tree-item' + (isDir ? ' is-dir' : ''));
       btn.type = 'button';
-      const icon = el('span', null, isDir ? 'DIR' : '   ');
-      icon.style.width = '26px';
-      icon.style.color = 'var(--faint)';
-      icon.style.fontSize = '10px';
-      icon.style.fontWeight = '700';
-      btn.appendChild(icon);
+      btn.appendChild(fileIcon(path, isDir, !!state.fileTreeExpanded[path]));
       btn.appendChild(el('span', 'tree-name', entry.name));
       if (isDir) {
         const children = el('div', 'tree-children');
