@@ -8,7 +8,11 @@
   const click = (id) => () => { const el = document.getElementById(id); if (el && !el.hidden && !el.disabled) el.click(); };
   const focusComposer = () => { const el = document.getElementById('composer-input'); if (el) el.focus(); };
 
-  function cycleAgent() { A().setAgentMode(A().agent() === 'plan' ? 'build' : 'plan'); }
+  function cycleAgent() {
+    const list = Array.from(document.querySelectorAll('.agent-toggle .agent-btn')).map((b) => b.dataset.agent);
+    const i = list.indexOf(A().agent());
+    A().setAgentMode(list[(i + 1) % list.length] || 'build');
+  }
   function moveSession(delta) {
     const items = Array.from(document.querySelectorAll('.session-item'));
     if (!items.length) return;

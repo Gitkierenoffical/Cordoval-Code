@@ -48,6 +48,7 @@
     attachments: [],
     serverCommands: [],
     commandsLoaded: false,
+    customAgents: [],
   };
 
   const slash = { open: false, items: [], index: 0 };
@@ -181,7 +182,9 @@
 
   function storedAgent(sessionId) {
     const value = localStorage.getItem(agentKey(sessionId));
-    return value === 'plan' ? 'plan' : 'build';
+    if (value === 'plan') return 'plan';
+    if (value && (state.customAgents || []).some(function (a) { return a.name === value; })) return value;
+    return 'build';
   }
 
   function saveAgent(sessionId, agent) {
@@ -917,6 +920,30 @@
     const agent = currentAgent();
     els.agentBuild.classList.toggle('is-active', agent === 'build');
     els.agentPlan.classList.toggle('is-active', agent === 'plan');
+    const group = els.agentBuild.parentNode;
+    for (const old of Array.from(group.querySelectorAll('.agent-btn-custom'))) old.remove();
+    for (const a of state.customAgents || []) {
+      const b = el('button', 'agent-btn agent-btn-custom' + (agent === a.name ? ' is-active' : ''), a.name);
+      b.type = 'button';
+      b.dataset.agent = a.name;
+      b.title = a.description || ('Custom agent ' + a.name);
+      b.addEventListener('click', function () { saveAgent(state.sessionId, a.name); renderAgentToggle(); });
+      group.appendChild(b);
+    }
+  }
+
+  // Custom primary agents from the engine (config or .opencode/agent) show up next to Build and Plan.
+  async function loadCustomAgents() {
+    const BUILT_IN = ['build', 'plan', 'general', 'explore', 'compaction', 'summary', 'title'];
+    try {
+      const list = await window.Api.request('/agent');
+      state.customAgents = (Array.isArray(list) ? list : []).filter(function (a) {
+        return a && a.name && BUILT_IN.indexOf(a.name) < 0 && !a.hidden && a.mode !== 'subagent';
+      }).map(function (a) { return { name: a.name, description: a.description || '' }; });
+    } catch (err) {
+      state.customAgents = [];
+    }
+    renderAgentToggle();
   }
 
   function updateStopButton() {
@@ -943,6 +970,7 @@
     const slashParsed = parseSlashText(els.composerInput.value.trim());
     if (slashParsed && slashParsed.name) {
       await ensureServerCommands();
+      loadCustomAgents();
       const match = allSlashCommands().find(function (c) { return c.name === slashParsed.name; });
       if (match) {
         closeSlashMenu();
@@ -2197,7 +2225,7 @@
     }
     saveAgent(state.sessionId, agent);
     renderAgentToggle();
-    toast('Agent switched to ' + (agent === 'plan' ? 'Plan' : 'Build') + '.');
+    toast('Agent switched to ' + (agent === 'plan' ? 'Plan' : agent === 'build' ? 'Build' : agent) + '.');
   }
 
   function undoLastUserMessage() {
@@ -2756,6 +2784,8 @@
       const url = await window.cordoval.setEngineConfig(obj);
       await restartEngineAndReconnect(url);
       state.commandsLoaded = false;
+      await ensureServerCommands().catch(function () {});
+      await loadCustomAgents();
       return true;
     },
     refreshSessions: function () { return refreshSessions(); },
