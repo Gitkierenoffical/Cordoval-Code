@@ -20,6 +20,9 @@
     'and finish with a short summary. Never use emojis. Never write the word "company". Never hardcode secrets.',
   ].join('\n ');
 
+  const MAX_FILE_BYTES = 20 * 1024 * 1024;
+  const INIT_PROMPT = 'Analyse this project and create or update AGENTS.md with build, test and style instructions';
+
   const state = {
     ready: false,
     directory: null,
@@ -42,7 +45,13 @@
     fileTreeExpanded: {},
     renamingId: null,
     vcsMissing: false,
+    attachments: [],
+    serverCommands: [],
+    commandsLoaded: false,
   };
+
+  const slash = { open: false, items: [], index: 0 };
+  let attachmentSeq = 0;
 
   const els = {};
 
@@ -242,7 +251,14 @@
     els.sessionList = $('session-list');
     els.messages = $('messages');
     els.emptyChat = $('empty-chat');
+    els.composer = $('composer');
     els.composerInput = $('composer-input');
+    els.composerAttachments = $('composer-attachments');
+    els.slashMenu = $('slash-menu');
+    els.attachInput = $('attach-input');
+    els.btnAttach = $('btn-attach');
+    els.helpBackdrop = $('help-backdrop');
+    els.helpList = $('help-list');
     els.modelPicker = $('model-picker');
     els.btnStop = $('btn-stop');
     els.agentBuild = $('btn-agent-build');
@@ -572,6 +588,25 @@
     return details;
   }
 
+  function renderFilePart(part) {
+    const chip = el('div', 'part file-part');
+    chip.dataset.partId = part.id || '';
+    const mime = String(part.mime || '');
+    const url = part.url ? String(part.url) : '';
+    const name = String(part.filename || 'attachment');
+    if (url && /^image\//.test(mime)) {
+      const img = document.createElement('img');
+      img.className = 'file-thumb';
+      img.src = url;
+      img.alt = name;
+      img.title = name;
+      chip.appendChild(img);
+    }
+    chip.appendChild(el('span', 'file-part-name', name));
+    chip.title = name + (mime ? ' (' + mime + ')' : '');
+    return chip;
+  }
+
   function renderPart(part, message) {
     if (!part) return null;
     const type = String(part.type || 'text');
@@ -605,6 +640,9 @@
         }
       }
       return box;
+    }
+    if (type === 'file') {
+      return renderFilePart(part);
     }
     const text = el('div', 'part md');
     text.dataset.partId = part.id;
@@ -879,31 +917,47 @@
     els.btnStop.hidden = !isBusy(state.sessionId);
   }
 
+  function restoreAttachments(list) {
+    state.attachments = Array.isArray(list) ? list : [];
+    renderAttachments();
+  }
+
   async function sendMessage() {
     const text = els.composerInput.value.trim();
-    if (!text || !state.sessionId) return;
+    const attachments = state.attachments.slice();
+    if ((!text && !attachments.length) || !state.sessionId) return;
     const model = currentModel();
     const agent = currentAgent();
+    const parts = [];
+    if (text) parts.push({ type: 'text', text });
+    for (const item of attachments) {
+      parts.push({ type: 'file', mime: item.mime, filename: item.filename, url: item.url });
+    }
     const payload = {
       model: { providerID: model.providerID, modelID: model.modelID },
       agent: agent,
-      parts: [{ type: 'text', text }],
+      parts: parts,
     };
     els.composerInput.value = '';
+    state.attachments = [];
+    renderAttachments();
     autosizeComposer();
     try {
       await window.Api.promptAsync(state.sessionId, payload);
       state.busyBySession[state.sessionId] = true;
       updateStopButton();
       renderSessions();
+      const stamp = Date.now();
       const optimistic = {
         info: {
-          id: 'local-' + Date.now(),
+          id: 'local-' + stamp,
           sessionID: state.sessionId,
           role: 'user',
-          time: { created: Date.now() },
+          time: { created: stamp },
         },
-        parts: [{ id: 'local-part-' + Date.now(), type: 'text', text }],
+        parts: parts.map(function (part, index) {
+          return Object.assign({ id: 'local-part-' + stamp + '-' + index }, part);
+        }),
       };
       state.messages.push(optimistic);
       sortMessages();
@@ -914,6 +968,7 @@
     } catch (err) {
       toast(errorMessage(err), 'error');
       els.composerInput.value = text;
+      restoreAttachments(attachments);
       autosizeComposer();
     }
   }
@@ -930,6 +985,88 @@
     const input = els.composerInput;
     input.style.height = 'auto';
     input.style.height = Math.min(220, Math.max(64, input.scrollHeight)) + 'px';
+  }
+
+  function readAsDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result || ''));
+      };
+      reader.onerror = function () {
+        reject(reader.error || new Error('Could not read the file.'));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function isImageFile(file) {
+    return !!(file && /^image\//.test(String(file.type || '')));
+  }
+
+  async function addAttachments(fileList) {
+    const files = Array.prototype.slice.call(fileList || []);
+    for (const file of files) {
+      const name = file.name || 'file';
+      if (file.size > MAX_FILE_BYTES) {
+        toast('"' + name + '" is larger than the 20 MB limit and was not attached.', 'error');
+        continue;
+      }
+      try {
+        const url = await readAsDataUrl(file);
+        attachmentSeq += 1;
+        state.attachments.push({
+          id: 'att-' + attachmentSeq + '-' + Date.now(),
+          mime: String(file.type || 'application/octet-stream'),
+          filename: name,
+          url: url,
+          size: file.size || 0,
+        });
+      } catch (err) {
+        toast('Could not read "' + name + '": ' + errorMessage(err), 'error');
+      }
+    }
+    renderAttachments();
+  }
+
+  function removeAttachment(id) {
+    state.attachments = state.attachments.filter(function (item) {
+      return item.id !== id;
+    });
+    renderAttachments();
+  }
+
+  function renderAttachments() {
+    const host = els.composerAttachments;
+    if (!host) return;
+    clear(host);
+    host.hidden = !state.attachments.length;
+    for (const item of state.attachments) {
+      const chip = el('div', 'attachment-chip');
+      chip.dataset.attachmentId = item.id;
+      if (item.url && /^image\//.test(item.mime)) {
+        const img = document.createElement('img');
+        img.className = 'attachment-thumb';
+        img.src = item.url;
+        img.alt = '';
+        chip.appendChild(img);
+      } else {
+        chip.appendChild(el('span', 'attachment-badge', 'FILE'));
+      }
+      const label = el('span', 'attachment-name', item.filename);
+      label.title = item.filename + ' (' + item.mime + ')';
+      chip.appendChild(label);
+      const remove = el('button', 'attachment-remove');
+      remove.type = 'button';
+      remove.title = 'Remove ' + item.filename;
+      remove.setAttribute('aria-label', 'Remove ' + item.filename);
+      remove.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M4.03 4.03a.75.75 0 0 1 1.06 0L8 6.94l2.91-2.91a.75.75 0 1 1 1.06 1.06L9.06 8l2.91 2.91a.75.75 0 1 1-1.06 1.06L8 9.06l-2.91 2.91a.75.75 0 0 1-1.06-1.06L6.94 8 4.03 5.09a.75.75 0 0 1 0-1.06Z"/></svg>';
+      remove.addEventListener('click', function () {
+        removeAttachment(item.id);
+      });
+      chip.appendChild(remove);
+      host.appendChild(chip);
+    }
   }
 
   async function restartEngineAndReconnect() {
@@ -981,6 +1118,10 @@
     state.permissions = {};
     state.diffs = {};
     state.vcsMissing = false;
+    state.commandsLoaded = false;
+    state.serverCommands = [];
+    closeSlashMenu();
+    restoreAttachments([]);
     renderMessages();
     renderPermissions();
     await window.Api.connectEvents();
@@ -1846,6 +1987,345 @@
     }
   }
 
+  function toggleTheme() {
+    persistTheme(state.theme === 'dark' ? 'light' : 'dark');
+  }
+
+  function toggleTerminalSafe() {
+    toggleTerminal().catch(function (err) {
+      toast(errorMessage(err), 'error');
+    });
+  }
+
+  function closeTerminalSafe() {
+    window.TerminalPanel.close().catch(function () {});
+  }
+
+  function fitTerminalSafe() {
+    window.TerminalPanel.fit();
+  }
+
+  function focusSessionsList() {
+    const item = els.sessionList.querySelector('.session-item');
+    if (item) {
+      item.scrollIntoView({ block: 'nearest' });
+      item.focus();
+      return;
+    }
+    $('btn-new-session').focus();
+  }
+
+  function openModelPicker() {
+    const select = els.modelPicker;
+    if (!select) return;
+    select.focus();
+    if (typeof select.showPicker === 'function') {
+      try {
+        select.showPicker();
+      } catch (err) {
+        // showPicker needs a user gesture; focus alone is enough
+      }
+    }
+  }
+
+  function setAgentMode(agent) {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    saveAgent(state.sessionId, agent);
+    renderAgentToggle();
+    toast('Agent switched to ' + (agent === 'plan' ? 'Plan' : 'Build') + '.');
+  }
+
+  function undoLastUserMessage() {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    const list = state.messages.filter(function (message) {
+      return message.info && message.info.role === 'user' && message.info.id;
+    });
+    const last = list[list.length - 1];
+    if (!last) {
+      toast('There is no user message to undo.', 'error');
+      return;
+    }
+    revertTo(last.info.id);
+  }
+
+  function redoLastRevert() {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    unrevert();
+  }
+
+  async function compactSession() {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    const model = currentModel();
+    try {
+      await window.Api.summarize(state.sessionId, {
+        providerID: model.providerID,
+        modelID: model.modelID,
+      });
+      toast('Compacting the conversation.');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+  }
+
+  async function initProject() {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    const model = currentModel();
+    try {
+      await window.Api.initSession(state.sessionId, {
+        providerID: model.providerID,
+        modelID: model.modelID,
+      });
+      toast('Project instructions requested.');
+      return;
+    } catch (err) {
+      // engine may require a messageID; fall back to a plain prompt
+    }
+    try {
+      await window.Api.promptAsync(state.sessionId, {
+        model: { providerID: model.providerID, modelID: model.modelID },
+        agent: currentAgent(),
+        parts: [{ type: 'text', text: INIT_PROMPT }],
+      });
+      state.busyBySession[state.sessionId] = true;
+      updateStopButton();
+      renderSessions();
+      setTimeout(function () {
+        selectSession(state.sessionId).catch(function () {});
+      }, 400);
+    } catch (err2) {
+      toast(errorMessage(err2), 'error');
+    }
+  }
+
+  function runServerCommand(command, args) {
+    if (!state.sessionId) {
+      toast('Open a session first.', 'error');
+      return;
+    }
+    const model = currentModel();
+    window.Api.runCommand(state.sessionId, {
+      command: command.name,
+      arguments: String(args || ''),
+      model: model.providerID + '/' + model.modelID,
+      agent: currentAgent(),
+    })
+      .then(function () {
+        toast('Running /' + command.name + '.');
+        state.busyBySession[state.sessionId] = true;
+        updateStopButton();
+        renderSessions();
+        setTimeout(function () {
+          selectSession(state.sessionId).catch(function () {});
+        }, 400);
+      })
+      .catch(function (err) {
+        toast(errorMessage(err), 'error');
+      });
+  }
+
+  function builtinCommands() {
+    return [
+      { name: 'new', description: 'Start a new session', run: function () { newSession(); } },
+      { name: 'sessions', description: 'Focus the sessions list', run: focusSessionsList },
+      { name: 'plan', description: 'Switch the agent to Plan', run: function () { setAgentMode('plan'); } },
+      { name: 'build', description: 'Switch the agent to Build', run: function () { setAgentMode('build'); } },
+      { name: 'model', description: 'Focus and open the model picker', run: openModelPicker },
+      { name: 'models', description: 'Focus and open the model picker', run: openModelPicker },
+      { name: 'undo', description: 'Revert the last user message', run: undoLastUserMessage },
+      { name: 'redo', description: 'Restore the last reverted message', run: redoLastRevert },
+      { name: 'compact', description: 'Summarise the conversation', run: compactSession },
+      { name: 'init', description: 'Create or update AGENTS.md', run: initProject },
+      { name: 'clear', description: 'Start a new session', run: function () { newSession(); } },
+      { name: 'theme', description: 'Toggle the light or dark theme', run: toggleTheme },
+      { name: 'terminal', description: 'Toggle the terminal panel', run: toggleTerminalSafe },
+      { name: 'settings', description: 'Open settings', run: openSettings },
+      { name: 'help', description: 'List all slash commands', run: function () { openSlashHelp(); } },
+    ];
+  }
+
+  async function ensureServerCommands() {
+    if (!state.directory || state.commandsLoaded) return;
+    try {
+      const list = await window.Api.listCommands();
+      state.serverCommands = Array.isArray(list) ? list.slice() : [];
+    } catch (err) {
+      state.serverCommands = [];
+    }
+    state.commandsLoaded = true;
+  }
+
+  function allSlashCommands() {
+    const list = builtinCommands().map(function (command) {
+      return { name: command.name, description: command.description || '', server: false, run: command.run };
+    });
+    const seen = {};
+    for (const item of list) seen[item.name] = true;
+    const server = state.serverCommands
+      .slice()
+      .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); })
+      .filter(function (command) { return command && command.name; })
+      .filter(function (command) {
+        if (seen[command.name]) return false;
+        seen[command.name] = true;
+        return true;
+      })
+      .map(function (command) {
+        return {
+          name: String(command.name),
+          description: String(command.description || command.template || ''),
+          server: true,
+          command: command,
+        };
+      });
+    return list.concat(server);
+  }
+
+  function parseSlashText(value) {
+    const raw = String(value || '');
+    if (raw.charAt(0) !== '/') return null;
+    const match = raw.match(/^\/([^\s]*)/);
+    if (!match) return null;
+    return { name: match[1], args: raw.slice(match[0].length).trim() };
+  }
+
+  function closeSlashMenu() {
+    slash.open = false;
+    slash.items = [];
+    slash.index = 0;
+    if (els.slashMenu) {
+      els.slashMenu.hidden = true;
+      clear(els.slashMenu);
+    }
+  }
+
+  function updateSlashMenu() {
+    const parsed = parseSlashText(els.composerInput.value);
+    if (!parsed) {
+      closeSlashMenu();
+      return;
+    }
+    const needle = parsed.name.toLowerCase();
+    slash.items = allSlashCommands().filter(function (command) {
+      return command.name.toLowerCase().indexOf(needle) === 0;
+    });
+    if (!slash.items.length) {
+      closeSlashMenu();
+      return;
+    }
+    slash.open = true;
+    if (slash.index >= slash.items.length) slash.index = 0;
+    renderSlashMenu();
+    if (!state.commandsLoaded) {
+      ensureServerCommands().then(function () {
+        if (slash.open) updateSlashMenu();
+      });
+    }
+  }
+
+  function renderSlashMenu() {
+    const menu = els.slashMenu;
+    clear(menu);
+    if (!slash.open) {
+      menu.hidden = true;
+      return;
+    }
+    slash.items.forEach(function (item, index) {
+      const row = el('div', 'slash-item' + (index === slash.index ? ' is-active' : ''));
+      row.setAttribute('role', 'option');
+      row.dataset.index = String(index);
+      if (index === slash.index) row.setAttribute('aria-selected', 'true');
+      row.appendChild(el('span', 'slash-name', '/' + item.name));
+      row.appendChild(el('span', 'slash-desc', item.description || ''));
+      row.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        pickSlash(index);
+      });
+      row.addEventListener('mouseenter', function () {
+        slash.index = index;
+        const rows = menu.querySelectorAll('.slash-item');
+        for (let i = 0; i < rows.length; i++) {
+          rows[i].classList.toggle('is-active', i === index);
+        }
+      });
+      menu.appendChild(row);
+    });
+    menu.hidden = false;
+    const active = menu.querySelector('.slash-item.is-active');
+    if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function moveSlashSelection(delta) {
+    if (!slash.open || !slash.items.length) return;
+    slash.index = (slash.index + delta + slash.items.length) % slash.items.length;
+    renderSlashMenu();
+  }
+
+  function pickSlash(index) {
+    if (!slash.open || !slash.items.length) return;
+    const item = slash.items[typeof index === 'number' ? index : slash.index];
+    if (!item) return;
+    const parsed = parseSlashText(els.composerInput.value);
+    const args = parsed ? parsed.args : '';
+    closeSlashMenu();
+    els.composerInput.value = '';
+    autosizeComposer();
+    if (item.server) {
+      runServerCommand(item.command, args);
+    } else if (typeof item.run === 'function') {
+      item.run(args);
+    }
+  }
+
+  function openSlashHelp() {
+    ensureServerCommands().then(function () {
+      const host = els.helpList;
+      clear(host);
+      const section = el('div', 'help-section');
+      section.appendChild(el('div', 'help-section-title', 'Built-in commands'));
+      for (const command of builtinCommands()) {
+        const row = el('div', 'help-item');
+        row.appendChild(el('span', 'help-name', '/' + command.name));
+        row.appendChild(el('span', 'help-desc', command.description || ''));
+        section.appendChild(row);
+      }
+      host.appendChild(section);
+      const server = allSlashCommands().filter(function (command) { return command.server; });
+      const serverSection = el('div', 'help-section');
+      serverSection.appendChild(el('div', 'help-section-title', 'Project commands'));
+      if (server.length) {
+        for (const command of server) {
+          const row = el('div', 'help-item');
+          row.appendChild(el('span', 'help-name', '/' + command.name));
+          row.appendChild(el('span', 'help-desc', command.description || ''));
+          serverSection.appendChild(row);
+        }
+      } else {
+        serverSection.appendChild(el('div', 'help-desc', 'No project commands are available.'));
+      }
+      host.appendChild(serverSection);
+      els.helpBackdrop.hidden = false;
+    });
+  }
+
+  function closeSlashHelp() {
+    els.helpBackdrop.hidden = true;
+  }
+
   function bindEvents() {
     $('btn-welcome-open').addEventListener('click', function () {
       pickAndOpenProject().catch(function (err) {
@@ -1865,9 +2345,7 @@
     $('btn-new-session').addEventListener('click', newSession);
     $('btn-settings').addEventListener('click', openSettings);
     $('btn-settings-close').addEventListener('click', closeSettings);
-    $('btn-theme').addEventListener('click', function () {
-      persistTheme(state.theme === 'dark' ? 'light' : 'dark');
-    });
+    $('btn-theme').addEventListener('click', toggleTheme);
     $('btn-unrevert').addEventListener('click', unrevert);
     $('btn-stop').addEventListener('click', stopGeneration);
     $('btn-files-refresh').addEventListener('click', function () {
@@ -1876,17 +2354,10 @@
     $('btn-changes-refresh').addEventListener('click', refreshChanges);
     $('btn-search-run').addEventListener('click', runSearch);
     $('btn-lsp-refresh').addEventListener('click', refreshDiagnostics);
-    $('btn-terminal-toggle').addEventListener('click', function () {
-      toggleTerminal().catch(function (err) {
-        toast(errorMessage(err), 'error');
-      });
-    });
-    $('btn-terminal-close').addEventListener('click', function () {
-      window.TerminalPanel.close().catch(function () {});
-    });
-    $('btn-terminal-fit').addEventListener('click', function () {
-      window.TerminalPanel.fit();
-    });
+    $('btn-terminal-toggle').addEventListener('click', toggleTerminalSafe);
+    $('btn-terminal-close').addEventListener('click', closeTerminalSafe);
+    $('btn-terminal-fit').addEventListener('click', fitTerminalSafe);
+    $('btn-help-close').addEventListener('click', closeSlashHelp);
     $('btn-templates-close').addEventListener('click', closeTemplates);
     $('btn-template-browse').addEventListener('click', async function () {
       try {
@@ -1899,12 +2370,80 @@
     $('btn-template-create').addEventListener('click', createFromTemplate);
 
     els.composerInput.addEventListener('keydown', function (event) {
+      if (slash.open) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveSlashSelection(1);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveSlashSelection(-1);
+          return;
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          event.preventDefault();
+          pickSlash();
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          closeSlashMenu();
+          return;
+        }
+      }
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         sendMessage();
       }
     });
-    els.composerInput.addEventListener('input', autosizeComposer);
+    els.composerInput.addEventListener('input', function () {
+      autosizeComposer();
+      updateSlashMenu();
+    });
+    els.composerInput.addEventListener('paste', function (event) {
+      const clipboard = event.clipboardData;
+      if (!clipboard || !clipboard.items) return;
+      const files = [];
+      for (const item of clipboard.items) {
+        if (item.kind !== 'file') continue;
+        const file = item.getAsFile();
+        if (file && isImageFile(file)) files.push(file);
+      }
+      if (!files.length) return;
+      event.preventDefault();
+      addAttachments(files).catch(function (err) {
+        toast(errorMessage(err), 'error');
+      });
+    });
+
+    els.btnAttach.addEventListener('click', function () {
+      els.attachInput.click();
+    });
+    els.attachInput.addEventListener('change', function () {
+      addAttachments(els.attachInput.files).catch(function (err) {
+        toast(errorMessage(err), 'error');
+      });
+      els.attachInput.value = '';
+    });
+
+    els.composer.addEventListener('dragover', function (event) {
+      event.preventDefault();
+      els.composer.classList.add('is-dragover');
+    });
+    els.composer.addEventListener('dragleave', function (event) {
+      if (event.target === els.composer) els.composer.classList.remove('is-dragover');
+    });
+    els.composer.addEventListener('drop', function (event) {
+      event.preventDefault();
+      els.composer.classList.remove('is-dragover');
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (!files || !files.length) return;
+      addAttachments(files).catch(function (err) {
+        toast(errorMessage(err), 'error');
+      });
+    });
 
     els.agentBuild.addEventListener('click', function () {
       saveAgent(state.sessionId, 'build');
@@ -1960,11 +2499,24 @@
       if (event.target === els.templatesBackdrop) closeTemplates();
     });
 
+    els.helpBackdrop.addEventListener('click', function (event) {
+      if (event.target === els.helpBackdrop) closeSlashHelp();
+    });
+
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
-        if (!els.templatesBackdrop.hidden) closeTemplates();
+        if (!els.helpBackdrop.hidden) closeSlashHelp();
+        else if (!els.templatesBackdrop.hidden) closeTemplates();
         else if (!els.settingsBackdrop.hidden) closeSettings();
+        else if (slash.open) closeSlashMenu();
       }
+    });
+
+    document.addEventListener('mousedown', function (event) {
+      if (!slash.open) return;
+      const wrap = els.composer && els.composer.closest('.composer-wrap');
+      if (wrap && wrap.contains(event.target)) return;
+      closeSlashMenu();
     });
 
     document.addEventListener('cordoval:file-saved', function () {

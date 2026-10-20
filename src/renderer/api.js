@@ -119,6 +119,31 @@
       return request('/session/' + encodeURIComponent(id) + '/unrevert', { method: 'POST' });
     },
 
+    summarize(id, payload) {
+      return request('/session/' + encodeURIComponent(id) + '/summarize', {
+        method: 'POST',
+        body: payload,
+      });
+    },
+
+    initSession(id, payload) {
+      return request('/session/' + encodeURIComponent(id) + '/init', {
+        method: 'POST',
+        body: payload,
+      });
+    },
+
+    runCommand(id, payload) {
+      return request('/session/' + encodeURIComponent(id) + '/command', {
+        method: 'POST',
+        body: payload,
+      });
+    },
+
+    listCommands() {
+      return request('/command');
+    },
+
     replyPermission(requestID, reply) {
       return request('/permission/' + encodeURIComponent(requestID) + '/reply', {
         method: 'POST',
