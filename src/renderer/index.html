@@ -197,13 +197,14 @@
           <div class="setting-row">
             <div>
               <div class="setting-label">Theme</div>
-              <div class="setting-help">Light lavender is the default. Dark uses a deep indigo surface.</div>
+              <div class="setting-help">Mode. Cordoval lavender is the default colour theme; OpenCode's built-in themes are below.</div>
             </div>
             <div class="theme-choice">
               <label class="radio"><input type="radio" name="theme" value="light"> Light</label>
               <label class="radio"><input type="radio" name="theme" value="dark"> Dark</label>
             </div>
           </div>
+          <div id="theme-family-picker"></div>
         </section>
         <section class="modal-view" data-stab="updates" id="settings-updates">
           <p class="privacy-sub">Cordoval Code version <span id="app-version">-</span>. Updates are off by default and nothing is contacted until you turn them on and set a feed.</p>
@@ -284,6 +285,8 @@
   <script src="worktrees.js"></script>
   <script src="updates.js"></script>
   <script src="customize.js"></script>
+  <script src="themes-data.js"></script>
+  <script src="themes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

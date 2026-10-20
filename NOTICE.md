@@ -26,3 +26,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Also bundled: Electron (MIT), xterm.js (MIT), marked (MIT), jsdiff (BSD-3-Clause).
+
+- Colour themes in src/renderer/themes-data.js are derived from OpenCode's desktop themes (packages/ui/src/theme/themes), MIT licence, Copyright (c) 2025 opencode.

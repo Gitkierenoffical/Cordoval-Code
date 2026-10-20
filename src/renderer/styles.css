@@ -2305,3 +2305,12 @@ textarea:focus-visible:not(.composer-input) {
 /* Keep the title bar (theme toggle, Settings) usable on the welcome screen. */
 .welcome { top: 44px; }
 .titlebar { position: relative; z-index: 21; }
+
+/* Theme picker */
+#theme-family-picker { margin-top: 14px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; max-height: 260px; overflow: auto; margin-top: 6px; }
+.theme-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+.theme-option:hover { border-color: var(--border-strong); }
+.theme-option.is-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.theme-swatch { display: inline-flex; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); flex: none; }
+.theme-swatch i { width: 9px; height: 16px; display: block; }
