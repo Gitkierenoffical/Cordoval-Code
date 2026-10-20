@@ -18,6 +18,13 @@ terminal panel (xterm.js), light lavender and dark themes, and project templates
 (React+Vite, Next.js, static site, Electron, Tauri, Android Kotlin Compose, React Native Expo,
 Flutter, Node API, FastAPI) with builder system prompts.
 
+### New in 0.2.0
+Built-in Monaco editor (tabs, save, syntax highlighting, inline diagnostics), file and image
+attachments (button, drag and drop, paste), slash commands (/new, /plan, /build, /undo, /redo,
+/model, /init, /compact, /clear, /theme, /terminal, /settings, /help, plus project commands),
+friendly model names with Free labels, keychain warning, and a lighter OpenCode-style layout.
+Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `test/templates.js`.
+
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
