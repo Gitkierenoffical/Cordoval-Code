@@ -164,6 +164,43 @@ function registerIpc() {
     return keys.deleteKey(provider);
   });
 
+  // Session import/export runs the engine's own CLI against the same isolated data dir.
+  function runEngineCli(args, cwd) {
+    const { execFile } = require('child_process');
+    return new Promise((resolve, reject) => {
+      const cp = execFile(engine.binaryPath(), args, { cwd, env: engine.buildEnv(app.getPath('userData'), keys.readAll()), maxBuffer: 256 * 1024 * 1024, timeout: 120000 }, (err, stdout, stderr) => {
+        if (err) reject(new Error((stderr || err.message || '').toString().split('\n').filter(Boolean).slice(-3).join(' ')));
+        else resolve(String(stdout));
+      });
+      if (cp.stdin) cp.stdin.end();
+    });
+  }
+  ipcMain.handle('session:exportJson', async (event, id, dir) => {
+    if (!/^[A-Za-z0-9_-]+$/.test(String(id))) throw new Error('Invalid session id.');
+    const out = await runEngineCli(['export', String(id)], dir && fs.existsSync(dir) ? dir : app.getPath('home'));
+    const start = out.indexOf('{');
+    const data = JSON.parse(out.slice(start));
+    return JSON.stringify(data, null, 2);
+  });
+  ipcMain.handle('session:importJson', async (event, dir) => {
+    const res = await dialog.showOpenDialog(win, { title: 'Import session', properties: ['openFile'], filters: [{ name: 'Session JSON', extensions: ['json'] }] });
+    if (res.canceled || !res.filePaths[0]) return null;
+    const file = res.filePaths[0];
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!data || !data.info || !data.info.id || !Array.isArray(data.messages)) throw new Error('That file is not an exported session.');
+    // Re-home the session in the current project so it shows up in the list.
+    const tmp = path.join(app.getPath('temp'), 'cordoval-import-' + Date.now() + '.json');
+    if (dir) data.info.directory = dir;
+    fs.writeFileSync(tmp, JSON.stringify(data));
+    try { await runEngineCli(['import', tmp], dir && fs.existsSync(dir) ? dir : app.getPath('home')); } finally { fs.rmSync(tmp, { force: true }); }
+    return { id: data.info.id, title: data.info.title || '' };
+  });
+  ipcMain.handle('file:saveAs', async (event, defaultName, content) => {
+    const res = await dialog.showSaveDialog(win, { title: 'Save', defaultPath: path.join(app.getPath('documents'), String(defaultName || 'export.txt').replace(/[\\/:*?"<>|]/g, '-')) });
+    if (res.canceled || !res.filePath) return null;
+    fs.writeFileSync(res.filePath, String(content));
+    return res.filePath;
+  });
   ipcMain.handle('econfig:get', () => engineConfig.read());
   ipcMain.handle('econfig:path', () => engineConfig.configFile());
   ipcMain.handle('econfig:set', async (event, obj) => {

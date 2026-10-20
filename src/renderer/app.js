@@ -430,7 +430,9 @@
     if (id === state.sessionId) updateRevertBanner();
   }
 
-  async function deleteSession(id) {
+  async function deleteSession(id, skipConfirm) {
+    const target = state.sessions.find(function (s) { return s.id === id; });
+    if (!skipConfirm && !window.confirm('Delete the session "' + ((target && target.title) || id) + '"? This cannot be undone.')) return;
     try {
       await window.Api.deleteSession(id);
       state.sessions = state.sessions.filter(function (s) { return s.id !== id; });
@@ -2757,6 +2759,16 @@
       return true;
     },
     refreshSessions: function () { return refreshSessions(); },
+    openModelPicker: function () { return openModelPicker(); },
+    setAgentMode: function (a) { return setAgentMode(a); },
+    agent: function () { return currentAgent(); },
+    undo: function () { return undoLastUserMessage(); },
+    redo: function () { return redoLastRevert(); },
+    compact: function () { return compactSession(); },
+    init: function () { return initProject(); },
+    toggleTerminal: function () { return toggleTerminalSafe(); },
+    switchRightTab: function (t) { return switchRightTab(t); },
+    openSlashHelp: function () { return openSlashHelp(); },
     selectSession: function (id) { return selectSession(id); },
     newSession: function () { return newSession(); },
     openSettings: function () { return openSettings(); },
