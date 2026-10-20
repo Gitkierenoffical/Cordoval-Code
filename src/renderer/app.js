@@ -260,6 +260,7 @@
     els.helpBackdrop = $('help-backdrop');
     els.helpList = $('help-list');
     els.modelPicker = $('model-picker');
+    els.btnSend = $('btn-send');
     els.btnStop = $('btn-stop');
     els.agentBuild = $('btn-agent-build');
     els.agentPlan = $('btn-agent-plan');
@@ -914,7 +915,18 @@
   }
 
   function updateStopButton() {
-    els.btnStop.hidden = !isBusy(state.sessionId);
+    const busy = isBusy(state.sessionId);
+    els.btnStop.hidden = !busy;
+    updateSendButton();
+  }
+
+  function updateSendButton() {
+    const btn = els.btnSend;
+    if (!btn) return;
+    const busy = isBusy(state.sessionId);
+    btn.hidden = busy;
+    const empty = !String(els.composerInput.value || '').trim() && !state.attachments.length;
+    btn.disabled = busy || empty;
   }
 
   function restoreAttachments(list) {
