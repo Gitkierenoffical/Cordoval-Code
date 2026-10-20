@@ -16,6 +16,11 @@ const path = require('path'); const fs = require('fs'); const { spawnSync } = re
   r.rows = await page.$$eval('.worktree-item', e => e.map(x => x.textContent));
   r.gitList = spawnSync('git', ['worktree', 'list'], { cwd: proj }).stdout.toString().trim().split('\n').length;
   await page.screenshot({ path: path.join(__dirname, '..', 'screenshots', '19-worktrees.png') });
+  fs.writeFileSync(path.join(r.dir, 'a.txt'), 'changed\n'); fs.writeFileSync(path.join(r.dir, 'extra.txt'), 'x\n');
+  await page.hover('.worktree-item.is-active'); await page.click('.worktree-item.is-active button:has-text("Reset")'); await page.waitForTimeout(5000);
+  r.resetRestored = fs.readFileSync(path.join(r.dir, 'a.txt'), 'utf8') === 'a\n';
+  r.resetCleaned = !fs.existsSync(path.join(r.dir, 'extra.txt'));
+  r.stillOpen = (await page.evaluate(() => window.CordovalApp.directory())) === r.dir;
   await page.hover('.worktree-item.is-active'); await page.click('.worktree-item.is-active .worktree-remove'); await page.waitForTimeout(5000);
   r.back = (await page.evaluate(() => window.CordovalApp.directory())) === proj;
   r.removed = !fs.existsSync(r.dir);

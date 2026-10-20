@@ -74,6 +74,7 @@
   async function act(kind, root, dir) {
     if (busy) return;
     if (kind === 'remove' && !window.confirm('Remove worktree ' + base(dir) + ' and delete its branch?')) return;
+    if (kind === 'reset' && !window.confirm('Reset worktree ' + base(dir) + '? Uncommitted changes in it will be discarded.')) return;
     busy = true;
     try {
       if (kind === 'remove') {
