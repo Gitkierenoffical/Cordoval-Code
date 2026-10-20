@@ -184,6 +184,21 @@ function registerIpc() {
 
   ipcMain.handle('scaffold:create', (event, templateId, parentDir, name) => scaffoldProject(templateId, parentDir, name));
 
+  ipcMain.handle('file:write', (event, projectDir, relPath, content) => {
+    if (typeof projectDir !== 'string' || !projectDir.trim()) throw new Error('Missing project directory.');
+    if (typeof relPath !== 'string' || !relPath.trim()) throw new Error('Missing file path.');
+    if (typeof content !== 'string') throw new Error('Invalid file content.');
+    const root = path.resolve(projectDir);
+    const target = path.resolve(root, relPath);
+    const rel = path.relative(root, target);
+    if (!rel || rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
+      throw new Error('Refusing to write outside the project directory.');
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, 'utf8');
+    return true;
+  });
+
   ipcMain.handle('oauth:openrouter', () =>
     oauth.openrouterSignIn({
       storeKey: (provider, value) => keys.setKey(provider, value),

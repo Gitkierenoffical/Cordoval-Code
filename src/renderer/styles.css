@@ -82,7 +82,6 @@ code,
 pre,
 .mono,
 .model-picker,
-.file-content,
 .diff-view,
 .terminal-host,
 .tool-pre {
@@ -292,6 +291,19 @@ button {
 .body {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr) 340px;
+  min-height: 0;
+}
+
+.center {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.center > .chat,
+.center > .editor-pane {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -1273,10 +1285,6 @@ button.statusbar-item:hover {
   width: min(720px, 100%);
 }
 
-.modal-file {
-  width: min(960px, 100%);
-}
-
 .modal-header {
   display: flex;
   align-items: center;
@@ -1525,18 +1533,85 @@ button.statusbar-item:hover {
   font-size: 12.5px;
 }
 
-.file-content {
-  margin: 0;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  max-height: 60vh;
-  overflow: auto;
+/* Editor */
+
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.editor-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
   font-size: 12.5px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-weight: 600;
+  padding: 10px 10px 8px;
+  max-width: 220px;
+  white-space: nowrap;
+}
+
+.editor-tab:hover {
+  color: var(--text);
+}
+
+.editor-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.editor-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-tab-dirty {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.editor-host {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.editor-status {
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 10px;
 }
 
 /* Diff */

@@ -8,7 +8,7 @@ Brand: name "Cordoval Code", accent #0A5CFF, default light theme soft lavender (
 - src/main/engine.js    : spawn engine, find free port, wait for GET /global/health.
 - src/main/keys.js      : BYOK store using electron safeStorage (OS keychain backed), saved encrypted in userData/keys.json. Never log keys.
 - src/main/preload.js   : contextBridge `window.cordoval` = { engineUrl(), pickFolder(), getKeys() (returns provider ids + masked flags only, never values), setKey(provider, value), deleteKey(provider), setCustom(list), getCustom(), restartEngine(), getSettings(), setSettings(obj), templates(), scaffold(templateId, parentDir, name) }
-- src/renderer/index.html, app.js, api.js, styles.css, terminal.js, diff.js
+- src/renderer/index.html, app.js, api.js, styles.css, terminal.js, diff.js, editor.js
 - src/templates/*.js    : project templates + system prompts.
 
 ## Engine (src/main/engine.js)
@@ -44,7 +44,7 @@ Part types: text{text}, reasoning{text}, tool{tool, state:{status:"pending"|"run
 - Center: chat. Messages render markdown (marked). Streaming text via deltas. Tool parts as collapsible cards: tool name, title, status, input, output (pre). Reasoning collapsed. Each user message has "Revert to here" button (POST revert). When session.revert set, show banner with "Restore" (unrevert).
 - Composer: textarea (Enter send, Shift+Enter newline), mode toggle Build/Plan (agent), model picker per session (select grouped by provider from /config/providers; remember per session in localStorage; default opencode/mimo-v2.6-flash-free), Stop button while busy.
 - Permission requests: inline card in chat with Allow once / Always allow / Deny.
-- Right panel tabs: Files (lazy tree from /file, click opens content viewer), Changes (session.diff + /file/status; unified diff viewer using `diff` package createTwoFilesPatch, colored lines), Search (grep via /find), Diagnostics (/lsp status).
+- Right panel tabs: Files (lazy tree from /file, click opens a Monaco editor tab in the center), Changes (session.diff + /file/status; unified diff viewer using `diff` package createTwoFilesPatch, colored lines), Search (grep via /find), Diagnostics (/lsp status).
 - Bottom: toggleable Terminal panel with xterm.js (node_modules/@xterm/xterm) connected to engine pty websocket.
 - Settings modal: tabs Providers (OpenRouter, OpenAI, Anthropic, Google Gemini, Groq, xAI: password input, Save, Remove, "Stored in OS keychain" state; OpenRouter "Sign in with OpenRouter" button performing PKCE OAuth: open https://openrouter.ai/auth?callback_url=http://127.0.0.1:<port>/callback&code_challenge=..&code_challenge_method=S256 in browser, local http listener receives ?code, POST https://openrouter.ai/api/v1/auth/keys {code,code_verifier,code_challenge_method:"S256"} -> {key}, store it), Custom endpoints (name, base URL, API key optional, model ids comma separated; Ollama + LM Studio presets), Appearance (Light/Dark), Privacy text: "No Cordoval servers. No telemetry. Keys stay on this device."
 - Templates (src/templates/index.js): array of {id,name,category,description,prompt,system}. Categories Web (React+Vite, Next.js, static site), Desktop (Electron, Tauri), Mobile (Android Kotlin Jetpack Compose, React Native Expo, Flutter), Backend (Node API, Python FastAPI). Scaffold: create folder parent/name, open it as project, create session, send prompt_async with agent "build" and system = template.system + general builder system prompt (src/templates/system.js: plan first, create full project structure, run install/build/test commands, fix errors, summarise).

@@ -264,9 +264,6 @@
     els.templateName = $('template-name');
     els.templateParent = $('template-parent');
     els.templateError = $('template-error');
-    els.fileBackdrop = $('file-backdrop');
-    els.fileTitle = $('file-title');
-    els.fileContent = $('file-content');
     els.toastHost = $('toast-host');
   }
 
@@ -961,6 +958,13 @@
     pushRecent(dir);
     if (window.Api) window.Api.setDirectory(dir);
     if (window.TerminalPanel) window.TerminalPanel.setDirectory(dir);
+    if (window.CodeEditor && document.dispatchEvent) {
+      try {
+        document.dispatchEvent(new CustomEvent('cordoval:project-changed', { detail: { directory: dir } }));
+      } catch (err) {
+        // CustomEvent is available in Electron; ignore otherwise
+      }
+    }
     updateProjectChrome();
     showWelcome(false);
     state.messages = [];
@@ -1201,16 +1205,15 @@
     }
   }
 
-  async function openFile(path) {
-    try {
-      const data = await window.Api.fileContent(path);
-      const content = data && data.content != null ? String(data.content) : '';
-      els.fileTitle.textContent = path;
-      els.fileContent.textContent = content;
-      els.fileBackdrop.hidden = false;
-    } catch (err) {
-      toast(errorMessage(err), 'error');
+  function openFile(path) {
+    if (!state.directory) {
+      toast('Open a project first.', 'error');
+      return;
     }
+    if (!window.CodeEditor) return;
+    window.CodeEditor.open(path).catch(function (err) {
+      toast(errorMessage(err), 'error');
+    });
   }
 
   function hasVcsRepository(info) {
@@ -1810,10 +1813,6 @@
     }
   }
 
-  function closeFile() {
-    els.fileBackdrop.hidden = true;
-  }
-
   async function toggleTerminal() {
     if (!state.directory) {
       toast('Open a project first.', 'error');
@@ -1881,7 +1880,6 @@
       }
     });
     $('btn-template-create').addEventListener('click', createFromTemplate);
-    $('btn-file-close').addEventListener('click', closeFile);
 
     els.composerInput.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -1944,16 +1942,17 @@
     els.templatesBackdrop.addEventListener('click', function (event) {
       if (event.target === els.templatesBackdrop) closeTemplates();
     });
-    els.fileBackdrop.addEventListener('click', function (event) {
-      if (event.target === els.fileBackdrop) closeFile();
-    });
 
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
-        if (!els.fileBackdrop.hidden) closeFile();
-        else if (!els.templatesBackdrop.hidden) closeTemplates();
+        if (!els.templatesBackdrop.hidden) closeTemplates();
         else if (!els.settingsBackdrop.hidden) closeSettings();
       }
+    });
+
+    document.addEventListener('cordoval:file-saved', function () {
+      if (!state.directory) return;
+      if (state.rightTab === 'diagnostics') refreshDiagnostics();
     });
   }
 

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src http://127.0.0.1:* ws://127.0.0.1:*; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; worker-src 'self' blob:; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Cordoval Code</title>
   <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="styles.css">
@@ -41,7 +41,8 @@
         <div class="session-list" id="session-list"></div>
       </aside>
 
-      <main class="chat" id="chat">
+      <div class="center">
+        <main class="chat" id="chat">
         <div class="revert-banner" id="revert-banner" hidden>
           <span id="revert-banner-text">Reverted to an earlier message.</span>
           <button type="button" class="btn btn-secondary btn-sm" id="btn-unrevert">Restore</button>
@@ -70,6 +71,19 @@
           </div>
         </footer>
       </main>
+
+      <section class="editor-pane" id="editor-pane" hidden aria-label="Editor">
+        <div class="editor-toolbar">
+          <div class="editor-tabs" id="editor-tabs" role="tablist"></div>
+          <div class="editor-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-editor-save" title="Save (Ctrl+S / Cmd+S)">Save</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-editor-close" title="Close tab">Close</button>
+          </div>
+        </div>
+        <div class="editor-host" id="editor-host"></div>
+        <div class="editor-status" id="editor-status" hidden></div>
+      </section>
+      </div>
 
       <aside class="right-panel" id="right-panel">
         <div class="right-tabs" role="tablist">
@@ -214,20 +228,6 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="file-backdrop" hidden>
-    <div class="modal modal-file" role="dialog" aria-modal="true" aria-labelledby="file-title">
-      <header class="modal-header">
-        <h2 id="file-title">File</h2>
-        <button type="button" class="icon-btn" id="btn-file-close" aria-label="Close file">
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4.03 4.03a.75.75 0 0 1 1.06 0L8 6.94l2.91-2.91a.75.75 0 1 1 1.06 1.06L9.06 8l2.91 2.91a.75.75 0 1 1-1.06 1.06L8 9.06l-2.91 2.91a.75.75 0 0 1-1.06-1.06L6.94 8 4.03 5.09a.75.75 0 0 1 0-1.06Z"/></svg>
-        </button>
-      </header>
-      <div class="modal-body">
-        <pre class="file-content" id="file-content"></pre>
-      </div>
-    </div>
-  </div>
-
   <div class="toast-host" id="toast-host" aria-live="polite"></div>
 
   <script src="../../node_modules/diff/dist/diff.min.js"></script>
@@ -237,6 +237,7 @@
   <script src="api.js"></script>
   <script src="diff.js"></script>
   <script src="terminal.js"></script>
+  <script src="editor.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
