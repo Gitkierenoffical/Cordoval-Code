@@ -938,6 +938,19 @@
   }
 
   async function sendMessage() {
+    const slashParsed = parseSlashText(els.composerInput.value.trim());
+    if (slashParsed && slashParsed.name) {
+      await ensureServerCommands();
+      const match = allSlashCommands().find(function (c) { return c.name === slashParsed.name; });
+      if (match) {
+        closeSlashMenu();
+        els.composerInput.value = '';
+        autosizeComposer();
+        if (match.server) runServerCommand(match.command, slashParsed.args);
+        else if (typeof match.run === 'function') match.run(slashParsed.args);
+        return;
+      }
+    }
     const text = els.composerInput.value.trim();
     const attachments = state.attachments.slice();
     if ((!text && !attachments.length) || !state.sessionId) return;
@@ -1135,6 +1148,7 @@
     state.diffs = {};
     state.vcsMissing = false;
     state.commandsLoaded = false;
+    setTimeout(function () { ensureServerCommands().catch(function () {}); }, 0);
     state.serverCommands = [];
     closeSlashMenu();
     restoreAttachments([]);
@@ -2293,9 +2307,13 @@
 
   function pickSlash(index) {
     if (!slash.open || !slash.items.length) return;
-    const item = slash.items[typeof index === 'number' ? index : slash.index];
-    if (!item) return;
     const parsed = parseSlashText(els.composerInput.value);
+    let item = slash.items[typeof index === 'number' ? index : slash.index];
+    if (typeof index !== 'number' && parsed) {
+      const exact = slash.items.find(function (c) { return c.name === parsed.name; });
+      if (exact) item = exact;
+    }
+    if (!item) return;
     const args = parsed ? parsed.args : '';
     closeSlashMenu();
     els.composerInput.value = '';
