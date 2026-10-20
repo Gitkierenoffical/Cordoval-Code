@@ -37,6 +37,10 @@
             New session
           </button>
         </div>
+        <div class="sidebar-label sidebar-label-row">Workspaces
+          <button type="button" class="btn btn-ghost btn-xs" id="btn-new-worktree" title="Create a git worktree with its own branch">New worktree</button>
+        </div>
+        <div class="worktree-list" id="worktree-list"></div>
         <div class="sidebar-label">Sessions</div>
         <div class="session-list" id="session-list"></div>
       </aside>
@@ -262,6 +266,7 @@
   <script src="diff.js"></script>
   <script src="terminal.js"></script>
   <script src="editor.js"></script>
+  <script src="worktrees.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

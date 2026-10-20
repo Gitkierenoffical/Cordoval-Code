@@ -1213,6 +1213,7 @@
     }
     updateProjectChrome();
     showWelcome(false);
+    document.dispatchEvent(new CustomEvent('cordoval:project-opened', { detail: { directory: dir } }));
     state.messages = [];
     state.sessionId = null;
     state.permissions = {};
@@ -2681,6 +2682,12 @@
       toast(errorMessage(err), 'error');
     }
   }
+
+  window.CordovalApp = {
+    openProject: function (dir) { return openProject(dir); },
+    directory: function () { return state.directory; },
+    toast: toast,
+  };
 
   boot().catch(function (err) {
     toast(errorMessage(err), 'error');
