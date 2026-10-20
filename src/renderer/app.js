@@ -559,7 +559,10 @@
     details.dataset.partId = part.id;
     const stateInfo = part.state || {};
     const status = String(stateInfo.status || 'pending');
-    if (status === 'completed' || status === 'error') details.open = true;
+    state.openTools = state.openTools || {};
+    if (part.id in state.openTools) details.open = !!state.openTools[part.id];
+    else if (status === 'error') details.open = true;
+    details.addEventListener('toggle', function () { state.openTools[part.id] = details.open; });
 
     const summary = el('summary');
     summary.appendChild(el('span', 'tool-name', part.tool || 'tool'));
