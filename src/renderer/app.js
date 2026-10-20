@@ -1305,10 +1305,11 @@
   }
 
   async function applyEngineConfigNow(obj) {
-    const res = await window.cordoval.setEngineConfig(obj);
+    const dirs = (window.ProjectTabs ? window.ProjectTabs.list() : []).concat(state.directory ? [state.directory] : []);
+    const res = await window.cordoval.setEngineConfig(obj, { directories: Array.from(new Set(dirs)) });
     if (res && res.restarted) await restartEngineAndReconnect(res.url);
     // Instances cache agents and commands; dispose the idle project instance so removals show too.
-    else if (state.directory) await window.cordoval.applyProjectFiles(state.directory).catch(function () {});
+
     await afterConfigApplied();
     return res && res.restarted ? 'restarted' : 'live';
   }

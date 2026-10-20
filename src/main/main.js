@@ -213,7 +213,6 @@ function registerIpc() {
   // Applies config changes live: the engine re-reads its global config file on any
   // PATCH /global/config, so write the file (deletions included) and send a no-op patch.
   // Falls back to a restart only if the live reload fails.
-  let pendingRemoval = false;
   async function engineRequest(method, p, body) {
     const url = enginePromise ? await enginePromise : null;
     if (!url) throw new Error('Engine not running.');
@@ -221,37 +220,64 @@ function registerIpc() {
     if (!res.ok) throw new Error('Engine returned ' + res.status);
     return res;
   }
-  ipcMain.handle('econfig:set', async (event, obj, opts) => {
-    const before = engineConfig.read();
-    const clean = engineConfig.write(obj);
-    // The engine keeps merged global config in memory, so removed entries only go away on a
-    // restart. The renderer only applies while every session is idle, so a restart is safe.
-    let removedOrRestart = false;
-    const removed0 = ['agent', 'command', 'mcp', 'permission', 'tools'].some((k) => {
-      const a = before[k], b = clean[k];
-      if (!a || typeof a !== 'object') return false;
-      if (!b || typeof b !== 'object') return Object.keys(a).length > 0;
-      return Object.keys(a).some((n) => !(n in b));
-    });
-    // Only agent changes reload reliably in the running engine (checked against 1.19.0);
-    // MCP, command and permission changes need a restart, which only happens while idle.
-    const changed = Object.keys(Object.assign({}, before, clean)).filter((k) => k !== '$schema' && JSON.stringify(before[k]) !== JSON.stringify(clean[k]));
-    if (changed.some((k) => k !== 'agent')) removedOrRestart = true;
-    const removed = removed0 || removedOrRestart;
-    if (opts && opts.writeOnly) { pendingRemoval = pendingRemoval || removed; return { url: enginePromise ? await enginePromise : null, restarted: false, applied: false }; }
-    try {
-      const mustRestart = removed || pendingRemoval || (opts && opts.forceRestart);
-      pendingRemoval = false;
-      if (mustRestart) throw new Error('restart needed');
-      const patch = Object.assign({}, clean); delete patch.$schema;
-      await engineRequest('PATCH', '/global/config', patch);
-      return { url: await enginePromise, restarted: false, applied: true };
-    } catch (err) {
-      if (enginePromise) await enginePromise.catch(() => {});
-      const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
-      enginePromise = Promise.resolve(info.url);
-      return { url: info.url, restarted: true, applied: true };
+  // What the running engine (1.19.0) can take without a restart, checked by hand:
+  //  - agent additions/changes: PATCH /global/config re-merges them live. Permission changes
+  //    showed up in a bare engine but not with Cordoval's provider config, so they restart.
+  //  - MCP servers: POST /mcp adds or replaces one in a project instance, and
+  //    /mcp/:name/connect|disconnect switch it on or off, so all MCP edits are live.
+  //  - command changes and removed agent/permission entries stay in memory until a restart.
+  // Restarts only happen while every session is idle (the renderer queues them).
+  let pendingBefore = null;
+  function diffSection(a, b) {
+    a = a && typeof a === 'object' ? a : {}; b = b && typeof b === 'object' ? b : {};
+    const names = new Set(Object.keys(a).concat(Object.keys(b)));
+    const out = { added: [], changed: [], removed: [] };
+    for (const n of names) {
+      if (!(n in a)) out.added.push(n); else if (!(n in b)) out.removed.push(n);
+      else if (JSON.stringify(a[n]) !== JSON.stringify(b[n])) out.changed.push(n);
     }
+    return out;
+  }
+  async function applyMcpLive(before, after, dirs) {
+    const d = diffSection(before.mcp, after.mcp);
+    for (const dir of dirs) {
+      const q = '?directory=' + encodeURIComponent(dir);
+      for (const n of d.added.concat(d.changed)) {
+        const cfg = after.mcp[n];
+        if (cfg.enabled === false) { await engineRequest('POST', '/mcp/' + encodeURIComponent(n) + '/disconnect' + q).catch(() => {}); continue; }
+        await engineRequest('POST', '/mcp' + q, { name: n, config: cfg });
+      }
+      for (const n of d.removed) await engineRequest('POST', '/mcp/' + encodeURIComponent(n) + '/disconnect' + q).catch(() => {});
+    }
+  }
+  ipcMain.handle('econfig:set', async (event, obj, opts) => {
+    opts = opts || {};
+    const current = engineConfig.read();
+    const clean = engineConfig.write(obj);
+    if (opts.writeOnly) {
+      if (!pendingBefore) pendingBefore = current;
+      return { url: enginePromise ? await enginePromise : null, restarted: false, applied: false };
+    }
+    const before = pendingBefore || current;
+    pendingBefore = null;
+    const keysChanged = Object.keys(Object.assign({}, before, clean)).filter((k) => k !== '$schema' && JSON.stringify(before[k]) !== JSON.stringify(clean[k]));
+    const agentD = diffSection(before.agent, clean.agent);
+    const permD = diffSection(before.permission, clean.permission);
+    const needsRestart = opts.forceRestart
+      || keysChanged.some((k) => !['agent', 'mcp', 'share', 'autoupdate'].includes(k))
+      || agentD.removed.length > 0 || permD.removed.length > 0;
+    if (!needsRestart) {
+      try {
+        const patch = Object.assign({}, clean); delete patch.$schema;
+        await engineRequest('PATCH', '/global/config', patch);
+        if (keysChanged.includes('mcp')) await applyMcpLive(before, clean, (opts.directories || []).filter(Boolean));
+        return { url: await enginePromise, restarted: false, applied: true };
+      } catch (err) { /* fall through to a restart */ }
+    }
+    if (enginePromise) await enginePromise.catch(() => {});
+    const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
+    enginePromise = Promise.resolve(info.url);
+    return { url: info.url, restarted: true, applied: true };
   });
   ipcMain.handle('eproject:apply', async (event, dir) => {
     await engineRequest('POST', '/instance/dispose?directory=' + encodeURIComponent(String(dir || '')));
