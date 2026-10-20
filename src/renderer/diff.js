@@ -81,12 +81,23 @@
       } else {
         const lines = String(patch).split('\n');
         if (lines.length && lines[lines.length - 1] === '') lines.pop();
+        let oldNo = 0, newNo = 0;
+        const fileName = String(entry.file || 'file');
         for (const line of lines) {
           const row = document.createElement('span');
           const cls = lineClass(line);
           row.className = 'diff-line' + (cls ? ' ' + cls : '');
           row.textContent = line;
+          if (cls === 'hunk') {
+            const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)/);
+            if (m) { oldNo = Number(m[1]); newNo = Number(m[2]); }
+          } else if (cls !== 'meta') {
+            let lineNo, side;
+            if (cls === 'del') { lineNo = oldNo++; side = 'old'; } else { lineNo = newNo++; side = 'new'; if (cls !== 'add') oldNo++; }
+            if (window.ReviewComments) window.ReviewComments.decorate(row, fileName, lineNo, side, line);
+          }
           body.appendChild(row);
+          if (window.ReviewComments) window.ReviewComments.renderThread(body, fileName, row);
         }
       }
       wrap.appendChild(body);

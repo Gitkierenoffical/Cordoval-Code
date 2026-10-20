@@ -1770,6 +1770,7 @@
       card.appendChild(body);
       els.changesList.appendChild(card);
     }
+    document.dispatchEvent(new Event('cordoval:changes-rendered'));
   }
 
   async function runSearch() {
@@ -2872,6 +2873,7 @@
     },
     refreshSessions: function () { return refreshSessions(); },
     openModelPicker: function () { return openModelPicker(); },
+    refreshChanges: function () { return refreshChanges(); },
     setAgentMode: function (a) { return setAgentMode(a); },
     agent: function () { return currentAgent(); },
     undo: function () { return undoLastUserMessage(); },

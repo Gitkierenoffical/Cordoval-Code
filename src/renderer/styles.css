@@ -2354,3 +2354,15 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .mention-value { font-family: var(--mono, ui-monospace, monospace); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mention-detail { color: var(--faint); font-size: 11px; }
 .variant-picker { max-width: 150px; }
+
+/* Review comments on diffs */
+.diff-line { position: relative; }
+.diff-comment-btn { position: absolute; left: 0; top: 0; width: 16px; height: 100%; border: 0; padding: 0; background: var(--accent); color: var(--accent-text); font-size: 11px; line-height: 1; border-radius: 3px; opacity: 0; cursor: pointer; }
+.diff-line:hover .diff-comment-btn { opacity: 1; }
+.diff-thread, .diff-comment-editor { display: block; margin: 4px 6px 6px 18px; font-family: var(--font, inherit); white-space: normal; }
+.diff-comment { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px; font-size: 12px; }
+.diff-comment-text { flex: 1; white-space: pre-wrap; }
+.diff-comment-editor textarea { width: 100%; font-size: 12px; }
+.diff-comment-actions { display: flex; gap: 6px; margin-top: 4px; }
+.review-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--accent-soft); font-size: 12px; }
+.review-bar #review-count { flex: 1; font-weight: 600; }
