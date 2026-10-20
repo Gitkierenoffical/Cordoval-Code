@@ -4,7 +4,7 @@ const path = require('path'); const fs = require('fs');
 (async () => {
   const proj = '/tmp/cc-lsp-' + Date.now(); fs.mkdirSync(proj);
   fs.writeFileSync(path.join(proj, 'app.py'), 'def add(a: int, b: int) -> int:\n    return a + b\n\nresult: int = add(1, "two")\nprint(undefined_name)\n');
-  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj] });
+  const app = await electron.launch({ executablePath: process.env.EXE || require('electron'), args: [process.env.EXE ? '' : path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj].filter(Boolean) });
   const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await page.waitForTimeout(7000);
