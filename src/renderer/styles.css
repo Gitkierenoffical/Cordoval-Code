@@ -2343,3 +2343,13 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .session-result:hover { background: var(--accent-soft); }
 .session-result-title { font-size: 12px; font-weight: 600; }
 .session-result-snippet { font-size: 11px; color: var(--muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* @-mention menu */
+.composer { position: relative; }
+.mention-menu { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px); max-height: 260px; overflow: auto; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 4px; z-index: 30; }
+.mention-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; cursor: pointer; }
+.mention-item.is-active { background: var(--accent-soft); }
+.mention-kind { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); width: 44px; flex: none; }
+.mention-agent { color: var(--accent); }
+.mention-value { font-family: var(--mono, ui-monospace, monospace); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mention-detail { color: var(--faint); font-size: 11px; }

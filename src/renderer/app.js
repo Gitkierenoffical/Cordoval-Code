@@ -988,6 +988,10 @@
     const agent = currentAgent();
     const parts = [];
     if (text) parts.push({ type: 'text', text });
+    // @-mentions: files become file parts (the engine reads them in), agents become agent parts.
+    if (text && window.Mentions) {
+      for (const m of window.Mentions.extract(text, state.directory)) parts.push(m);
+    }
     for (const item of attachments) {
       parts.push({ type: 'file', mime: item.mime, filename: item.filename, url: item.url });
     }
