@@ -1209,9 +1209,9 @@
     updateSendButton();
   }
 
-  async function restartEngineAndReconnect() {
+  async function restartEngineAndReconnect(givenUrl) {
     if (!window.cordoval || !window.cordoval.restartEngine) return;
-    const url = await window.cordoval.restartEngine();
+    const url = givenUrl || await window.cordoval.restartEngine();
     if (url) {
       state.engineUrl = url;
       window.Api.setBase(url);
@@ -2747,6 +2747,23 @@
     directory: function () { return state.directory; },
     toast: toast,
     _handleEvent: function (e) { return handleEvent(e); },
+    // Saves the engine's global config, restarts the engine and reconnects the UI.
+    saveEngineConfig: async function (obj) {
+      const busy = Object.keys(state.busyBySession || {}).length;
+      if (busy && !window.confirm('A session is still running. Saving restarts the engine and stops it. Continue?')) return false;
+      const url = await window.cordoval.setEngineConfig(obj);
+      await restartEngineAndReconnect(url);
+      state.commandsLoaded = false;
+      return true;
+    },
+    refreshSessions: function () { return refreshSessions(); },
+    selectSession: function (id) { return selectSession(id); },
+    newSession: function () { return newSession(); },
+    openSettings: function () { return openSettings(); },
+    toggleTheme: function () { return toggleTheme(); },
+    applyTheme: function (t) { return applyTheme(t); },
+    sessionId: function () { return state.sessionId; },
+    sendText: function (t) { els.composerInput.value = t; return sendMessage(); },
   };
 
   boot().catch(function (err) {
