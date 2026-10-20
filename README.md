@@ -28,7 +28,7 @@ Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `te
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
-Keys are encrypted with Electron safeStorage (Windows DPAPI, macOS Keychain, Linux Secret
+Keys are encrypted with Electron safeStorage (Windows DPAPI, Linux Secret
 Service/kwallet) and handed to the local engine as environment variables only. Free OpenCode Zen
 models (for example `opencode/mimo-v2.6-flash-free`) work without a key.
 
