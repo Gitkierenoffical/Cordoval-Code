@@ -1,7 +1,7 @@
 {
   "name": "cordoval-code",
   "productName": "Cordoval Code",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cordoval Code - privacy-first desktop AI coding app",
   "main": "src/main/main.js",
   "author": "Cordoval",
