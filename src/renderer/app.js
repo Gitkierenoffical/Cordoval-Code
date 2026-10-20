@@ -971,6 +971,8 @@
     renderAttachments();
     autosizeComposer();
     try {
+      state.lastPrompt = state.lastPrompt || {};
+      state.lastPrompt[state.sessionId] = { payload: payload, tried: [model.providerID + '/' + model.modelID] };
       await window.Api.promptAsync(state.sessionId, payload);
       state.busyBySession[state.sessionId] = true;
       updateStopButton();
@@ -1132,6 +1134,44 @@
       });
       bar.appendChild(btn);
     }
+  }
+
+  // When a free model refuses (rate limit, network block, overload), switch to the next
+  // free model and continue, at most three times per prompt.
+  const FALLBACK_RE = /free models aren't available|rate.?limit|too many requests|\b429\b|overloaded|capacity|temporarily unavailable/i;
+  function tryFreeModelFallback(sessionId, message) {
+    const last = state.lastPrompt && state.lastPrompt[sessionId];
+    if (!last || !FALLBACK_RE.test(message) || last.tried.length > 3) return false;
+    const current = last.tried[last.tried.length - 1].split('/');
+    const currentProvider = state.providers.find(function (p) { return p.id === current[0]; });
+    if (!currentProvider || !isFreeModel(currentProvider, current[1], (currentProvider.models || {})[current[1]])) return false;
+    const preferred = ['opencode/mimo-v2.6-flash-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/minimax-m3.1-flash-free', 'opencode/nemotron-3.5-super-vl-free', 'opencode/nemotron-3.5-lightning-free'];
+    const candidates = preferred.slice();
+    for (const p of state.providers) for (const k of Object.keys(p.models || {})) {
+      const id = p.id + '/' + ((p.models[k] && p.models[k].id) || k);
+      if (candidates.indexOf(id) < 0 && isFreeModel(p, k, p.models[k])) candidates.push(id);
+    }
+    const next = candidates.find(function (c) {
+      const parts = c.split('/');
+      return last.tried.indexOf(c) < 0 && findModelInfo(parts[0], parts.slice(1).join('/'));
+    });
+    if (!next) return false;
+    last.tried.push(next);
+    const parts = next.split('/');
+    const model = { providerID: parts[0], modelID: parts.slice(1).join('/') };
+    saveModel(sessionId, model);
+    if (sessionId === state.sessionId) renderModelPicker();
+    const name = prettyModelName({ id: model.providerID }, model.modelID, findModelInfo(model.providerID, model.modelID));
+    toast('The free model was unavailable. Continuing with ' + name + '.');
+    const assistantDidWork = state.messages.some(function (m) {
+      return m.info && m.info.role === 'assistant' && m.parts && m.parts.some(function (p) { return p.type === 'tool'; });
+    });
+    const payload = Object.assign({}, last.payload, { model: model });
+    if (assistantDidWork) payload.parts = [{ type: 'text', text: 'The previous model was interrupted. Continue the task from where it stopped.' }];
+    setTimeout(function () {
+      window.Api.promptAsync(sessionId, payload).catch(function (err) { toast(errorMessage(err), 'error'); });
+    }, 1500);
+    return true;
   }
 
   function renderAttachments() {
@@ -1311,6 +1351,7 @@
         const message = props.error && props.error.data && props.error.data.message
           ? props.error.data.message
           : (props.error && props.error.message) || props.message || 'Session error';
+        if (id && tryFreeModelFallback(id, String(message))) return;
         const target = findMessage(props.messageID) || state.messages[state.messages.length - 1];
         if (target) {
           target.error = String(message);
@@ -2056,12 +2097,15 @@
         .join('\n\n');
       const promptText = (resolved && resolved.prompt) ||
         'Create the full project described by the template, install dependencies, build, and test it.';
-      await window.Api.promptAsync(sessionId, {
+      const tplPayload = {
         model: { providerID: model.providerID, modelID: model.modelID },
         agent: 'build',
         system: system,
         parts: [{ type: 'text', text: promptText }],
-      });
+      };
+      state.lastPrompt = state.lastPrompt || {};
+      state.lastPrompt[sessionId] = { payload: tplPayload, tried: [model.providerID + '/' + model.modelID] };
+      await window.Api.promptAsync(sessionId, tplPayload);
       state.busyBySession[sessionId] = true;
       updateStopButton();
       renderSessions();
@@ -2687,6 +2731,7 @@
     openProject: function (dir) { return openProject(dir); },
     directory: function () { return state.directory; },
     toast: toast,
+    _handleEvent: function (e) { return handleEvent(e); },
   };
 
   boot().catch(function (err) {
