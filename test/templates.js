@@ -11,7 +11,7 @@ const log = (...a) => console.log('[tpl]', ...a);
 (async () => {
   for (const id of ids) {
     const name = id + '-' + Date.now().toString(36);
-    const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox'] });
+    const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox'], env: { ...process.env, CORDOVAL_USER_DATA: '/tmp/cc-ud-tpl-' + id + '-' + Date.now() } });
     const page = await app.firstWindow();
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
     await page.waitForTimeout(6000);

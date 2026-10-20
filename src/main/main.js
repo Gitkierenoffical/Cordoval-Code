@@ -27,7 +27,7 @@ function userDataFile(name) {
 function startEngine() {
   if (enginePromise) return enginePromise;
   const run = engine
-    .start({ userData: app.getPath('userData'), keys: keys.readAll() })
+    .start((() => { try { engineConfig.seedIfMissing(); } catch (e) {} return { userData: app.getPath('userData'), keys: keys.readAll() }; })())
     .then(info => info.url)
     .catch(err => {
       if (enginePromise === run) enginePromise = null;

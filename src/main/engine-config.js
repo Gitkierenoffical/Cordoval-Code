@@ -80,4 +80,17 @@ function deleteProject(projectDir, kind, name) {
   return true;
 }
 
-module.exports = { read, write, configFile, listProject, writeProject, deleteProject };
+// First-run defaults: shell commands that touch the system or remotes ask first. Users can
+// change these on the Permissions page; nothing is reseeded once the file exists.
+const SEED = {
+  $schema: 'https://opencode.ai/config.json',
+  permission: { bash: { '*': 'allow', 'sudo *': 'ask', 'su *': 'ask', 'rm -rf *': 'ask', 'git push*': 'ask', 'npm publish*': 'ask', 'curl * | sh*': 'ask', 'curl * | bash*': 'ask' } },
+};
+function seedIfMissing() {
+  const dir = configDir();
+  if (['opencode.jsonc', 'opencode.json'].some((n) => fs.existsSync(path.join(dir, n)))) return false;
+  write(SEED);
+  return true;
+}
+
+module.exports = { seedIfMissing, read, write, configFile, listProject, writeProject, deleteProject };
