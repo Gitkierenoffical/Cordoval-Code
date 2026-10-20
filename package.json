@@ -45,11 +45,6 @@
       "icon": "assets/icon.ico",
       "signAndEditExecutable": false
     },
-    "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.png",
-      "category": "public.app-category.developer-tools"
-    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
