@@ -1,7 +1,7 @@
 'use strict';
 
 (function () {
-  const DEFAULT_MODEL = { providerID: 'opencode', modelID: 'mimo-v2.6-flash-free' };
+  const DEFAULT_MODEL = { providerID: 'opencode', modelID: 'glm-5.3-flash-free' };
   const PROVIDER_LABELS = {
     openrouter: 'OpenRouter',
     openai: 'OpenAI',
@@ -1147,7 +1147,7 @@
     const current = last.tried[last.tried.length - 1].split('/');
     const currentProvider = state.providers.find(function (p) { return p.id === current[0]; });
     if (!currentProvider || !isFreeModel(currentProvider, current[1], (currentProvider.models || {})[current[1]])) return false;
-    const preferred = ['opencode/mimo-v2.6-flash-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/minimax-m3.1-flash-free', 'opencode/nemotron-3.5-super-vl-free', 'opencode/nemotron-3.5-lightning-free'];
+    const preferred = ['opencode/glm-5.3-flash-free', 'opencode/minimax-m3.1-flash-free', 'opencode/longcat-2.5-preview-free', 'opencode/nemotron-3.5-super-vl-free', 'opencode/nemotron-3.5-lightning-free', 'opencode/nemotron-3-ultra-free', 'opencode/mimo-v2.6-flash-free', 'opencode/deepseek-v4.1-flash-free'];
     const candidates = preferred.slice();
     for (const p of state.providers) for (const k of Object.keys(p.models || {})) {
       const id = p.id + '/' + ((p.models[k] && p.models[k].id) || k);
