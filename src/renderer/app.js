@@ -1064,7 +1064,78 @@
     renderAttachments();
   }
 
+  // Models whose metadata claims image input but which ignored images in our tests.
+  const VISION_UNRELIABLE = { 'opencode/mimo-v2.6-flash-free': true };
+  const VISION_PREFERRED = ['opencode/nemotron-3.5-super-vl-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/minimax-m3.1-flash-free'];
+
+  function findModelInfo(providerID, modelID) {
+    const provider = state.providers.find(function (p) { return p.id === providerID; });
+    if (!provider || !provider.models) return null;
+    return provider.models[modelID] || Object.values(provider.models).find(function (m) { return m && m.id === modelID; }) || null;
+  }
+
+  function modelSeesImages(providerID, modelID) {
+    if (VISION_UNRELIABLE[providerID + '/' + modelID]) return false;
+    const info = findModelInfo(providerID, modelID);
+    if (!info || !info.capabilities) return null;
+    const input = info.capabilities.input || {};
+    return !!input.image;
+  }
+
+  function suggestVisionModel() {
+    for (const key of VISION_PREFERRED) {
+      const parts = key.split('/');
+      if (findModelInfo(parts[0], parts[1]) && modelSeesImages(parts[0], parts[1])) return { providerID: parts[0], modelID: parts[1] };
+    }
+    for (const provider of state.providers) {
+      for (const id of Object.keys(provider.models || {})) {
+        const m = provider.models[id];
+        const mid = (m && m.id) || id;
+        if (modelSeesImages(provider.id, mid) && isFreeModel(provider, mid, m)) return { providerID: provider.id, modelID: mid };
+      }
+    }
+    return null;
+  }
+
+  function updateVisionWarning() {
+    let bar = document.getElementById('vision-warning');
+    const hasImage = state.attachments.some(function (a) { return /^image\//.test(a.mime || ''); });
+    const model = currentModel();
+    const sees = modelSeesImages(model.providerID, model.modelID);
+    if (!hasImage || sees === true) {
+      if (bar) bar.hidden = true;
+      return;
+    }
+    if (!bar) {
+      bar = el('div', 'vision-warning');
+      bar.id = 'vision-warning';
+      const host = els.composerAttachments || document.getElementById('composer-attachments');
+      host.parentNode.insertBefore(bar, host);
+    }
+    clear(bar);
+    bar.hidden = false;
+    const name = prettyModelName({ id: model.providerID }, model.modelID, findModelInfo(model.providerID, model.modelID));
+    bar.appendChild(el('span', 'vision-warning-text', sees === false
+      ? name + ' cannot read images, so the attached image will be ignored.'
+      : 'This model may not be able to read images.'));
+    const alt = suggestVisionModel();
+    if (alt) {
+      const altName = prettyModelName({ id: alt.providerID }, alt.modelID, findModelInfo(alt.providerID, alt.modelID));
+      const btn = el('button', 'btn btn-sm btn-secondary', 'Switch to ' + altName);
+      btn.type = 'button';
+      btn.id = 'btn-vision-switch';
+      btn.addEventListener('click', function () {
+        saveModel(state.sessionId, alt);
+        renderModelPicker();
+        updateVisionWarning();
+        toast('Switched to ' + altName + ' for this session.');
+      });
+      bar.appendChild(btn);
+    }
+  }
+
   function renderAttachments() {
+    setTimeout(updateVisionWarning, 0);
     const host = els.composerAttachments;
     if (!host) return;
     clear(host);
@@ -2499,6 +2570,7 @@
         const providerID = parts[0];
         const modelID = parts.slice(1).join('/');
         saveModel(state.sessionId, { providerID: providerID, modelID: modelID });
+        updateVisionWarning();
       }
     });
 

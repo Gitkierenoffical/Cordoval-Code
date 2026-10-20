@@ -2280,3 +2280,8 @@ textarea:focus-visible:not(.composer-input) {
 [data-theme="dark"] textarea:focus-visible:not(.composer-input) {
   outline-color: var(--accent);
 }
+
+.vision-warning { display: flex; align-items: center; gap: 10px; margin: 8px 12px 0; padding: 8px 10px;
+  border: 1px solid #E8B44C; background: #FFF6E0; color: #5A3D00; border-radius: 10px; font-size: 13px; }
+.vision-warning-text { flex: 1; }
+[data-theme="dark"] .vision-warning { background: #3A2E10; color: #F5DFA8; border-color: #8A6A20; }
