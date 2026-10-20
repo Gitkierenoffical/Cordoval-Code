@@ -38,6 +38,11 @@ Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `te
 - Rebindable keyboard shortcuts (Ctrl+/ then click a shortcut).
 - Customise changes to agents apply live; other changes wait until no session is running, then restart the engine, so nothing in flight is cut off.
 
+- Review comments survive restarts; background project tabs show a running dot.
+- MCP server add, edit, enable, disable and remove apply live through the engine's /mcp endpoints.
+- First-run permissions ask before sudo, rm -rf, git push, npm publish and curl | sh.
+- Inter type, OpenCode's type scale, radii and shadows, and coloured file-type icons.
+
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
@@ -64,4 +69,4 @@ MIT. Bundles OpenCode (MIT) - see NOTICE.md.
 
 ## Tests
 
-Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny, live-apply, mentions, variant, review, tabs-keys. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
+Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny, live-apply, mentions, variant, review, tabs-keys, tab-dot, live-mcp, sudo-ask. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
