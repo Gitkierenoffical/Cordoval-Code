@@ -7,6 +7,23 @@
   let tabs = [];
   let active = null;
   let strip;
+  const busy = {}; // dir -> true while any session there is busy or retrying
+
+  // Poll every open project's session status so background tabs show a running dot.
+  async function pollBusy() {
+    if (!window.Api || !window.Api.engineUrl || !window.Api.engineUrl()) return;
+    let changed = false;
+    for (const dir of tabs) {
+      let on = false;
+      try {
+        const st = await window.Api.request('/session/status', { query: { directory: dir } });
+        on = Object.values(st || {}).some((v) => v && (v.type === 'busy' || v.type === 'retry'));
+      } catch (e) { on = !!busy[dir]; }
+      if (!!busy[dir] !== on) { busy[dir] = on; changed = true; }
+    }
+    if (changed) render();
+  }
+  setInterval(pollBusy, 2500);
 
   function load() { try { tabs = JSON.parse(localStorage.getItem(KEY) || '[]').filter((t) => typeof t === 'string'); } catch (e) { tabs = []; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(tabs)); } catch (e) {} }
@@ -21,6 +38,8 @@
       tab.title = dir;
       tab.setAttribute('role', 'tab');
       tab.dataset.dir = dir;
+      const dot = document.createElement('span'); dot.className = 'project-tab-dot' + (busy[dir] ? ' is-busy' : ''); dot.title = busy[dir] ? 'An agent is working in this project' : ''; tab.appendChild(dot);
+      if (busy[dir]) tab.classList.add('is-busy');
       const label = document.createElement('span'); label.className = 'project-tab-name'; label.textContent = name(dir); tab.appendChild(label);
       const x = document.createElement('button'); x.type = 'button'; x.className = 'project-tab-close'; x.title = 'Close tab'; x.setAttribute('aria-label', 'Close ' + name(dir)); x.textContent = '\u00d7';
       x.addEventListener('click', (e) => { e.stopPropagation(); close(dir); });
@@ -85,5 +104,5 @@
     render();
   });
 
-  window.ProjectTabs = { list: () => tabs.slice(), active: () => active, switchTo, close, newTab, cycle, closeActive: () => active && close(active) };
+  window.ProjectTabs = { busy: () => Object.assign({}, busy), pollBusy, list: () => tabs.slice(), active: () => active, switchTo, close, newTab, cycle, closeActive: () => active && close(active) };
 })();

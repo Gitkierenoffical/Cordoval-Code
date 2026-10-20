@@ -2417,3 +2417,6 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .modal { border-radius: 12px !important; }
 .message-user .bubble { background: var(--panel) !important; border: 1px solid var(--border) !important; box-shadow: none !important; }
 .message-assistant .bubble { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-left: 0 !important; }
+.project-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; flex: none; margin-left: -4px; }
+.project-tab-dot.is-busy { background: var(--accent); box-shadow: 0 0 0 0 var(--accent); animation: tab-pulse 1.4s ease-out infinite; }
+@keyframes tab-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 5px transparent; } }
