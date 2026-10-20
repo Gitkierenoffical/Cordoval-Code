@@ -12,6 +12,9 @@ const updater = require('./updater');
 const engineConfig = require('./engine-config');
 const lsp = require('./lsp');
 
+// Lets automated tests run against a throwaway profile.
+if (process.env.CORDOVAL_USER_DATA) app.setPath('userData', process.env.CORDOVAL_USER_DATA);
+
 let win = null;
 let enginePromise = null;
 
@@ -202,6 +205,10 @@ function registerIpc() {
     return res.filePath;
   });
   ipcMain.handle('econfig:get', () => engineConfig.read());
+  ipcMain.handle('mcp:tools', async (event, name) => {
+    const entry = ((engineConfig.read().mcp) || {})[String(name)];
+    return require('./mcp-probe').listTools(entry);
+  });
   ipcMain.handle('econfig:path', () => engineConfig.configFile());
   ipcMain.handle('econfig:set', async (event, obj) => {
     engineConfig.write(obj);

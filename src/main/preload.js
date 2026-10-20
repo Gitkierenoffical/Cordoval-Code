@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('cordoval', {
   exportSessionJson: (id, dir) => ipcRenderer.invoke('session:exportJson', id, dir),
   importSessionJson: (dir) => ipcRenderer.invoke('session:importJson', dir),
   saveFileAs: (name, content) => ipcRenderer.invoke('file:saveAs', name, content),
+  mcpTools: (name) => ipcRenderer.invoke('mcp:tools', name),
   getEngineConfig: () => ipcRenderer.invoke('econfig:get'),
   engineConfigPath: () => ipcRenderer.invoke('econfig:path'),
   setEngineConfig: (obj) => ipcRenderer.invoke('econfig:set', obj),

@@ -348,6 +348,7 @@
 
   async function saveConfig(next) {
     toast('Saving...');
+    for (const k of Object.keys(mcpToolCache)) delete mcpToolCache[k];
     let ok = true;
     try {
       const saved = await window.CordovalApp.saveEngineConfig(next);
@@ -372,7 +373,13 @@
 
   async function writeProjectFile(dir, kind, name, content) {
     await window.cordoval.writeProjectFile(dir, kind, name, content);
+    await reloadEngine();
     toast('Saved');
+  }
+
+  // Project .opencode files are read when the engine starts, so restart it to pick them up.
+  async function reloadEngine() {
+    try { await window.CordovalApp.saveEngineConfig(deepCopy(config)); } catch (err) { toast('Engine reload failed: ' + errMsg(err), 'error'); }
   }
 
   // ---- modal DOM ----
@@ -469,7 +476,8 @@
     btn.type = 'button';
     btn.title = 'Customise MCP, agents, commands and permissions';
     btn.setAttribute('aria-label', 'Customise');
-    btn.textContent = 'Customise';
+    // Sliders icon.
+    btn.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M2 4.25A.75.75 0 0 1 2.75 3.5h5.4a2 2 0 0 1 3.7 0h1.4a.75.75 0 0 1 0 1.5h-1.4a2 2 0 0 1-3.7 0h-5.4A.75.75 0 0 1 2 4.25Zm8 .75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM2 11.75a.75.75 0 0 1 .75-.75h1.4a2 2 0 0 1 3.7 0h5.4a.75.75 0 0 1 0 1.5h-5.4a2 2 0 0 1-3.7 0h-1.4a.75.75 0 0 1-.75-.75Zm4 .75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"/></svg>';
     btn.addEventListener('click', function () {
       window.Customize.open();
     });
@@ -526,6 +534,7 @@
     lab.style.cssText = 'font-size:12px; font-weight:650; color:var(--muted, #6b7280); margin-bottom:4px;';
     wrap.appendChild(lab);
     wrap.appendChild(control);
+    if (control && control.setAttribute) control.setAttribute('data-field', labelText);
     return wrap;
   }
 
@@ -789,45 +798,67 @@
     renderActive();
   }
 
+  const mcpToolCache = {}; // name -> { state, tools, error }
+
+  function loadServerTools(name) {
+    mcpToolCache[name] = { state: 'loading' };
+    window.cordoval.mcpTools(name).then(function (tools) {
+      mcpToolCache[name] = { state: 'ok', tools: tools || [] };
+    }, function (err) {
+      mcpToolCache[name] = { state: 'error', error: errMsg(err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '') };
+    }).then(function () {
+      if (active === 'mcp' && !mcpForm && dom) renderMcpList(dom.views.mcp);
+    });
+  }
+
   function toolsSection() {
     const wrap = el('div');
     const headRow = el('div');
     headRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:18px;';
-    const head = sectionHeader('Tools', 'Tool ids from the engine. MCP tools are named server_tool.');
+    const head = sectionHeader('Tools', 'Built-in tools from the engine, and the tools each MCP server offers. The agent sees MCP tools as server_tool.');
     headRow.appendChild(head);
     headRow.appendChild(actionButton('Refresh', 'btn btn-ghost btn-sm', async function () {
+      for (const k of Object.keys(mcpToolCache)) delete mcpToolCache[k];
       await fetchToolIds();
       renderMcpList(dom.views.mcp);
     }));
     wrap.appendChild(headRow);
 
-    const servers = serverNames();
-    const mcpTools = [];
-    const builtinTools = [];
-    for (const id of toolIds) {
-      if (isMcpTool(id, servers)) mcpTools.push(id);
-      else builtinTools.push(id);
+    wrap.appendChild(listOfTools('Built-in tools', toolIds.filter(function (id) { return id !== 'invalid'; })));
+    const servers = (config && config.mcp) || {};
+    for (const name of Object.keys(servers).sort()) {
+      const entry = servers[name] || {};
+      if (entry.enabled === false) {
+        wrap.appendChild(listOfTools(name, [], 'Disabled.'));
+        continue;
+      }
+      const c = mcpToolCache[name];
+      if (!c) { loadServerTools(name); wrap.appendChild(listOfTools(name, [], 'Loading tools...')); continue; }
+      if (c.state === 'loading') wrap.appendChild(listOfTools(name, [], 'Loading tools...'));
+      else if (c.state === 'error') wrap.appendChild(listOfTools(name, [], 'Could not list tools: ' + c.error));
+      else wrap.appendChild(listOfTools(name, c.tools.map(function (t) { return { id: name + '_' + t.name, title: t.description }; })));
     }
-
-    wrap.appendChild(listOfTools('Built-in tools', builtinTools));
-    wrap.appendChild(listOfTools('MCP tools', mcpTools));
     return wrap;
   }
 
-  function listOfTools(title, ids) {
+  function listOfTools(title, ids, emptyText) {
     const block = el('div');
     block.style.cssText = CARD_CSS;
     const label = el('div', null, title + ' (' + ids.length + ')');
     label.style.cssText = 'font-size:12px; font-weight:650; color:var(--muted, #6b7280); margin-bottom:6px;';
     block.appendChild(label);
     if (!ids.length) {
-      block.appendChild(el('div', null, 'None.'));
+      const empty = el('div', null, emptyText || 'None.');
+      empty.style.cssText = 'font-size:12px; color:var(--muted, #6b7280);';
+      block.appendChild(empty);
       return block;
     }
     const list = el('div');
     list.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px;';
-    for (const id of ids) {
-      const chip = el('span', null, id);
+    for (const item of ids) {
+      const id = typeof item === 'string' ? item : item.id;
+      const chip = el('span', 'tool-chip', id);
+      if (item && item.title) chip.title = item.title;
       chip.style.cssText = 'font-size:11px; padding:2px 7px; border-radius:999px; border:1px solid var(--border, #e5e7eb);';
       list.appendChild(chip);
     }
@@ -1171,7 +1202,7 @@
         { value: 'inherit', label: 'inherit' },
       ], current);
     }
-    return { name, scope, description, mode, model, temperature, prompt, toolBoxes, permSelects };
+    return { name, scope, description, mode, model, temperature, prompt, toolBoxes, toolWrap, permSelects };
   }
 
   function renderAgentForm(view) {
@@ -1315,6 +1346,7 @@
       if (dir) {
         try {
           await window.cordoval.deleteProjectFile(dir, 'agent', rec.file);
+          if (!rec.hasGlobal) await reloadEngine();
           toast('Deleted ' + rec.name + '.');
         } catch (err) {
           toast('Could not delete the agent file: ' + errMsg(err), 'error');
@@ -1617,6 +1649,7 @@
       if (dir) {
         try {
           await window.cordoval.deleteProjectFile(dir, 'command', rec.file);
+          if (!rec.hasGlobal) await reloadEngine();
           toast('Deleted ' + rec.name + '.');
         } catch (err) {
           toast('Could not delete the command file: ' + errMsg(err), 'error');

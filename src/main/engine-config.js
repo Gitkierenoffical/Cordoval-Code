@@ -49,6 +49,7 @@ function write(obj) {
 // Project .opencode files (agents and commands as markdown with frontmatter).
 function projectPath(projectDir, kind, name) {
   if (!['agent', 'command'].includes(kind)) throw new Error('Invalid kind.');
+  name = path.basename(String(name || '')).replace(/\.md$/i, '');
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(String(name || ''))) throw new Error('Invalid name. Use letters, numbers, dot, dash or underscore.');
   const root = path.resolve(String(projectDir || ''));
   if (!fs.existsSync(root)) throw new Error('Project folder does not exist.');
