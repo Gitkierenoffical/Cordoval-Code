@@ -1079,6 +1079,7 @@
       chip.appendChild(remove);
       host.appendChild(chip);
     }
+    updateSendButton();
   }
 
   async function restartEngineAndReconnect() {
@@ -2360,6 +2361,9 @@
     $('btn-theme').addEventListener('click', toggleTheme);
     $('btn-unrevert').addEventListener('click', unrevert);
     $('btn-stop').addEventListener('click', stopGeneration);
+    $('btn-send').addEventListener('click', function () {
+      sendMessage();
+    });
     $('btn-files-refresh').addEventListener('click', function () {
       loadFilesTree('');
     });
@@ -2413,6 +2417,7 @@
     els.composerInput.addEventListener('input', function () {
       autosizeComposer();
       updateSlashMenu();
+      updateSendButton();
     });
     els.composerInput.addEventListener('paste', function (event) {
       const clipboard = event.clipboardData;
