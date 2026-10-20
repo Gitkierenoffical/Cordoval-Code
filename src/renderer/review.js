@@ -3,10 +3,29 @@
 (function () {
   'use strict';
   const A = () => window.CordovalApp || {};
+  // Kept in localStorage per session so comments survive restarts.
+  const KEY = 'cordoval.review.';
   const store = {}; // sessionId -> [{ id, file, line, side, code, text }]
-  let seq = 0;
+  let seq = Date.now();
 
-  function list() { const id = A().sessionId && A().sessionId(); return id ? (store[id] = store[id] || []) : []; }
+  function persist(id) {
+    try {
+      const l = store[id] || [];
+      if (l.length) localStorage.setItem(KEY + id, JSON.stringify(l)); else localStorage.removeItem(KEY + id);
+    } catch (e) {}
+  }
+  function list() {
+    const id = A().sessionId && A().sessionId();
+    if (!id) return [];
+    if (!store[id]) {
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem(KEY + id) || '[]'); } catch (e) { saved = []; }
+      const arr = Array.isArray(saved) ? saved : [];
+      // Any change to the array (push, splice, length = 0) is written straight back.
+      store[id] = new Proxy(arr, { set(t, k, v) { t[k] = v; persist(id); return true; }, deleteProperty(t, k) { delete t[k]; persist(id); return true; } });
+    }
+    return store[id];
+  }
   function keyOf(file, line, side) { return file + ':' + side + ':' + line; }
 
   function decorate(row, file, line, side, code) {
