@@ -33,6 +33,7 @@
     needs_auth: '#b45309',
     needs_client_registration: '#b45309',
     disabled: 'var(--faint, #94a3b8)',
+    connecting: 'var(--muted, #6b7280)',
   };
 
   const CARD_CSS = 'border:1px solid var(--border, #e5e7eb); border-radius:12px; background:var(--panel-2, #fafafa); padding:12px 14px; margin-bottom:10px;';
@@ -355,7 +356,7 @@
       if (saved === false) {
         ok = false;
         toast('Save cancelled.', 'error');
-      } else {
+      } else if (saved !== 'deferred') {
         toast('Saved');
       }
     } catch (err) {
@@ -379,7 +380,7 @@
 
   // Project .opencode files are read when the engine starts, so restart it to pick them up.
   async function reloadEngine() {
-    try { await window.CordovalApp.saveEngineConfig(deepCopy(config)); } catch (err) { toast('Engine reload failed: ' + errMsg(err), 'error'); }
+    try { await window.CordovalApp.applyProjectFiles(); } catch (err) { toast('Engine reload failed: ' + errMsg(err), 'error'); }
   }
 
   // ---- modal DOM ----
@@ -640,8 +641,17 @@
     typeEl.style.cssText = 'font-size:11px; color:var(--muted, #6b7280);';
     const spacer = el('span');
     spacer.style.cssText = 'flex:1 1 auto;';
-    const live = mcpLive[name];
-    const status = live && live.status ? String(live.status) : '';
+    let live = mcpLive[name];
+    let status = live && live.status ? String(live.status) : '';
+    // The engine leaves servers it could not reach out of /mcp. Use our own probe to tell
+    // "failed" from "still connecting".
+    if (!status && entry && entry.enabled !== false) {
+      const probe = mcpToolCache[name];
+      if (!probe) loadServerTools(name);
+      if (probe && probe.state === 'error' && !/sign in/i.test(probe.error)) { status = 'failed'; live = { status, error: probe.error }; }
+      else if (probe && probe.state === 'error') { status = 'needs_auth'; live = { status, error: probe.error }; }
+      else status = 'connecting';
+    }
     const chip = statusChip(status && status !== 'connected' && entry && entry.enabled === false ? 'disabled' : status);
     if (live && live.error) chip.title = String(live.error);
     headRow.appendChild(nameEl);

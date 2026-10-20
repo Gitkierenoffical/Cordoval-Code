@@ -34,7 +34,7 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await field('Type').selectOption('remote'); await page.waitForTimeout(200);
   await field('URL').fill('http://127.0.0.1:9/mcp');
   await saveForm();
-  r.remoteSaved = !!(cfg().mcp || {})['remote-test']; r.remoteStatus = ((await api('/mcp'))['remote-test'] || {}).status || 'none';
+  r.remoteSaved = !!(cfg().mcp || {})['remote-test']; await page.waitForTimeout(3000); r.remoteChip = await page.evaluate(() => /remote-test[\s\S]*?failed/.test(document.querySelector('#customize-backdrop').textContent));
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(shots, '38-mcp-servers.png') });
   // disable echo

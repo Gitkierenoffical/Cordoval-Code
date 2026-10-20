@@ -1239,6 +1239,43 @@
     updateSendButton();
   }
 
+  function anyBusy() {
+    return Object.keys(state.busyBySession || {}).some(function (id) { return isBusy(id); });
+  }
+
+  const pendingApply = { config: false, project: false, timer: null };
+  function queueApply(kind) {
+    pendingApply[kind] = true;
+    if (pendingApply.timer) return;
+    pendingApply.timer = setInterval(async function () {
+      if (anyBusy()) return;
+      clearInterval(pendingApply.timer);
+      pendingApply.timer = null;
+      const cfg = pendingApply.config, proj = pendingApply.project;
+      pendingApply.config = pendingApply.project = false;
+      try {
+        if (cfg) await applyEngineConfigNow(await window.cordoval.getEngineConfig());
+        else if (proj) { await window.cordoval.applyProjectFiles(state.directory); await afterConfigApplied(); }
+        toast('Customise changes applied.');
+      } catch (err) { toast(errorMessage(err), 'error'); }
+    }, 1000);
+  }
+
+  async function afterConfigApplied() {
+    state.commandsLoaded = false;
+    await ensureServerCommands().catch(function () {});
+    await loadCustomAgents();
+  }
+
+  async function applyEngineConfigNow(obj) {
+    const res = await window.cordoval.setEngineConfig(obj);
+    if (res && res.restarted) await restartEngineAndReconnect(res.url);
+    // Instances cache agents and commands; dispose the idle project instance so removals show too.
+    else if (state.directory) await window.cordoval.applyProjectFiles(state.directory).catch(function () {});
+    await afterConfigApplied();
+    return res && res.restarted ? 'restarted' : 'live';
+  }
+
   async function restartEngineAndReconnect(givenUrl) {
     if (!window.cordoval || !window.cordoval.restartEngine) return;
     const url = givenUrl || await window.cordoval.restartEngine();
@@ -2778,14 +2815,21 @@
     toast: toast,
     _handleEvent: function (e) { return handleEvent(e); },
     // Saves the engine's global config, restarts the engine and reconnects the UI.
+    // Saves the engine's global config and applies it live. If an agent is running, the
+    // change is written now and applied as soon as every session is idle, so nothing is cut off.
     saveEngineConfig: async function (obj) {
-      const busy = Object.keys(state.busyBySession || {}).length;
-      if (busy && !window.confirm('A session is still running. Saving restarts the engine and stops it. Continue?')) return false;
-      const url = await window.cordoval.setEngineConfig(obj);
-      await restartEngineAndReconnect(url);
-      state.commandsLoaded = false;
-      await ensureServerCommands().catch(function () {});
-      await loadCustomAgents();
+      if (anyBusy()) {
+        await window.cordoval.setEngineConfig(obj, { writeOnly: true });
+        queueApply('config');
+        toast('Saved. Changes apply when the running session finishes.');
+        return 'deferred';
+      }
+      return applyEngineConfigNow(obj);
+    },
+    applyProjectFiles: async function () {
+      if (anyBusy()) { queueApply('project'); toast('Saved. Changes apply when the running session finishes.'); return 'deferred'; }
+      await window.cordoval.applyProjectFiles(state.directory);
+      await afterConfigApplied();
       return true;
     },
     refreshSessions: function () { return refreshSessions(); },

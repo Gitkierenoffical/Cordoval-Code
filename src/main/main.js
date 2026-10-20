@@ -210,12 +210,52 @@ function registerIpc() {
     return require('./mcp-probe').listTools(entry);
   });
   ipcMain.handle('econfig:path', () => engineConfig.configFile());
-  ipcMain.handle('econfig:set', async (event, obj) => {
-    engineConfig.write(obj);
-    if (enginePromise) await enginePromise.catch(() => {});
-    const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
-    enginePromise = Promise.resolve(info.url);
-    return info.url;
+  // Applies config changes live: the engine re-reads its global config file on any
+  // PATCH /global/config, so write the file (deletions included) and send a no-op patch.
+  // Falls back to a restart only if the live reload fails.
+  let pendingRemoval = false;
+  async function engineRequest(method, p, body) {
+    const url = enginePromise ? await enginePromise : null;
+    if (!url) throw new Error('Engine not running.');
+    const res = await fetch(url + p, { method, headers: { 'content-type': 'application/json', 'x-opencode-ticket': '1' }, body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) throw new Error('Engine returned ' + res.status);
+    return res;
+  }
+  ipcMain.handle('econfig:set', async (event, obj, opts) => {
+    const before = engineConfig.read();
+    const clean = engineConfig.write(obj);
+    // The engine keeps merged global config in memory, so removed entries only go away on a
+    // restart. The renderer only applies while every session is idle, so a restart is safe.
+    let removedOrRestart = false;
+    const removed0 = ['agent', 'command', 'mcp', 'permission', 'tools'].some((k) => {
+      const a = before[k], b = clean[k];
+      if (!a || typeof a !== 'object') return false;
+      if (!b || typeof b !== 'object') return Object.keys(a).length > 0;
+      return Object.keys(a).some((n) => !(n in b));
+    });
+    // Only agent changes reload reliably in the running engine (checked against 1.19.0);
+    // MCP, command and permission changes need a restart, which only happens while idle.
+    const changed = Object.keys(Object.assign({}, before, clean)).filter((k) => k !== '$schema' && JSON.stringify(before[k]) !== JSON.stringify(clean[k]));
+    if (changed.some((k) => k !== 'agent')) removedOrRestart = true;
+    const removed = removed0 || removedOrRestart;
+    if (opts && opts.writeOnly) { pendingRemoval = pendingRemoval || removed; return { url: enginePromise ? await enginePromise : null, restarted: false, applied: false }; }
+    try {
+      const mustRestart = removed || pendingRemoval || (opts && opts.forceRestart);
+      pendingRemoval = false;
+      if (mustRestart) throw new Error('restart needed');
+      const patch = Object.assign({}, clean); delete patch.$schema;
+      await engineRequest('PATCH', '/global/config', patch);
+      return { url: await enginePromise, restarted: false, applied: true };
+    } catch (err) {
+      if (enginePromise) await enginePromise.catch(() => {});
+      const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
+      enginePromise = Promise.resolve(info.url);
+      return { url: info.url, restarted: true, applied: true };
+    }
+  });
+  ipcMain.handle('eproject:apply', async (event, dir) => {
+    await engineRequest('POST', '/instance/dispose?directory=' + encodeURIComponent(String(dir || '')));
+    return true;
   });
   ipcMain.handle('eproject:list', (event, dir, kind) => engineConfig.listProject(dir, kind));
   ipcMain.handle('eproject:write', (event, dir, kind, name, content) => engineConfig.writeProject(dir, kind, name, content));
