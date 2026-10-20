@@ -797,7 +797,7 @@
 
   function prettyModelName(provider, id, model) {
     const raw = (model && model.name && model.name !== id) ? String(model.name) : String(id);
-    let name = raw.replace(/[-_]free$/i, '').replace(/:free$/i, '');
+    let name = raw.replace(/[-_ ]free$/i, '').replace(/:free$/i, '').replace(/\s*\(free\)$/i, '');
     if (name === raw.toLowerCase() || /^[a-z0-9.\-_/:]+$/.test(name)) {
       name = name.split('/').pop().split(/[-_]/).map(function (w) {
         if (/^v?\d/.test(w)) return w;
@@ -951,9 +951,18 @@
     if (state.directory) await window.Api.connectEvents();
   }
 
+  async function waitForEngine() {
+    const t0 = Date.now();
+    while (!state.engineUrl || !window.Api.engineUrl()) {
+      if (Date.now() - t0 > 60000) throw new Error('The engine did not start.');
+      await new Promise(function (r) { setTimeout(r, 200); });
+    }
+  }
+
   async function openProject(dir, options) {
     const opts = options || {};
     if (!dir) return;
+    await waitForEngine();
     state.directory = dir;
     pushRecent(dir);
     if (window.Api) window.Api.setDirectory(dir);
@@ -1096,6 +1105,14 @@
         upsertPart(message, part);
         refreshMessageNode(message);
         els.emptyChat.hidden = true;
+        if (part.type === 'tool' && part.state && part.state.status === 'completed' &&
+            /^(write|edit|patch|multiedit|bash|apply_patch)$/.test(String(part.tool))) {
+          clearTimeout(state.treeTimer);
+          state.treeTimer = setTimeout(function () {
+            loadFilesTree('');
+            if (state.rightTab === 'changes') refreshChanges();
+          }, 800);
+        }
         return;
       }
       case 'message.part.delta': {
