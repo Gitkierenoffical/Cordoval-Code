@@ -664,7 +664,7 @@
     } else {
       renderMarkdown(text, part.text || '');
     }
-    if (message && isStreamingMessage(message) && (part.text || '') && type === 'text') {
+    if (message && isStreamingMessage(message) && (part.text || '') && type === 'text' && !(part.time && part.time.end)) {
       text.classList.add('stream-caret');
     }
     return text;
@@ -979,6 +979,8 @@
 
   function updateStopButton() {
     const busy = isBusy(state.sessionId);
+    // A finished turn must not leave blinking carets behind.
+    if (!busy) for (const n of document.querySelectorAll('.stream-caret')) n.classList.remove('stream-caret');
     els.btnStop.hidden = !busy;
     updateSendButton();
   }
