@@ -298,6 +298,9 @@ app.whenReady().then(() => {
   lsp.setSender((channel, payload) => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
   });
+  lsp.setStatusNotifier((st) => {
+    if (win && !win.isDestroyed()) win.webContents.send('lsp:status', st);
+  });
   createWindow();
   startEngine().catch(() => {
     // surfaced to the renderer through the engine:url channel

@@ -585,6 +585,12 @@
         } catch (err) {}
       });
     }
+    if (window.cordoval && typeof window.cordoval.onLspStatus === 'function') {
+      window.cordoval.onLspStatus(function (st) {
+        if (st && st.message) setStatus('LSP: ' + st.message);
+        if (st && st.state === 'error' && window.CordovalApp) window.CordovalApp.toast(st.message, 'error');
+      });
+    }
     document.addEventListener('cordoval:project-changed', function () {
       const oldDir = editorDir;
       editorDir = (window.Api && window.Api.getDirectory && window.Api.getDirectory()) || '';

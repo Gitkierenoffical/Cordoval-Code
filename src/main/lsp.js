@@ -13,7 +13,13 @@ const LANGUAGE_IDS = {
   '.mjs': 'javascript',
   '.cjs': 'javascript',
   '.py': 'python',
+  '.rs': 'rust',
+  '.go': 'go',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.dart': 'dart',
 };
+const { RESOLVERS } = require('./lsp-fetch');
 
 const SERVER_DEFS = {
   ts: {
@@ -35,7 +41,15 @@ const SERVER_DEFS = {
   },
 };
 
+SERVER_DEFS.rust = { extensions: ['.rs'], resolve: RESOLVERS.rust, rootMarkers: ['Cargo.toml'], initializationOptions() { return {}; } };
+SERVER_DEFS.go = { extensions: ['.go'], resolve: RESOLVERS.go, rootMarkers: ['go.mod'], initializationOptions() { return {}; } };
+SERVER_DEFS.kotlin = { extensions: ['.kt', '.kts'], resolve: RESOLVERS.kotlin, rootMarkers: ['settings.gradle.kts', 'settings.gradle', 'build.gradle.kts'], initializationOptions() { return {}; } };
+SERVER_DEFS.dart = { extensions: ['.dart'], resolve: RESOLVERS.dart, rootMarkers: ['pubspec.yaml'], initializationOptions() { return {}; } };
+
 const servers = new Map();
+let notifyStatus = null;
+function setStatusNotifier(fn) { notifyStatus = fn; }
+function status(msg) { if (notifyStatus) try { notifyStatus(msg); } catch (e) {} }
 let notifyRenderer = null;
 let nextRequestId = 1;
 
@@ -264,6 +278,32 @@ function initializeServer(server, def) {
 }
 
 function startServer(serverKey, def, root) {
+  const server = {
+    serverKey: serverKey,
+    root: root,
+    proc: null,
+    docs: new Map(),
+    pending: new Map(),
+    buffer: Buffer.alloc(0),
+    alive: true,
+  };
+  if (def.resolve) {
+    status({ server: serverKey, state: 'starting', message: 'Starting ' + serverKey + ' language server (downloading on first use)...' });
+    server.ready = def.resolve().then(function (cmd) {
+      const shell = process.platform === 'win32' && /\.(bat|cmd)$/i.test(cmd.command);
+      const proc = spawn(cmd.command, cmd.args, { cwd: root, env: process.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, shell: shell });
+      attachProcess(server, proc);
+      return initializeServer(server, def);
+    }).then(function (r) {
+      status({ server: serverKey, state: 'ready', message: serverKey + ' language server ready.' });
+      return r;
+    }).catch(function (err) {
+      status({ server: serverKey, state: 'error', message: String(err && err.message || err) });
+      retire(server);
+      throw err;
+    });
+    return server;
+  }
   const cli = resolveUnpackedPath(def.module);
   const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' });
   const proc = spawn(process.execPath, [cli].concat(def.args), {
@@ -272,15 +312,16 @@ function startServer(serverKey, def, root) {
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
   });
-  const server = {
-    serverKey: serverKey,
-    root: root,
-    proc: proc,
-    docs: new Map(),
-    pending: new Map(),
-    buffer: Buffer.alloc(0),
-    alive: true,
-  };
+  attachProcess(server, proc);
+  server.ready = initializeServer(server, def).catch(function (err) {
+    retire(server);
+    throw err;
+  });
+  return server;
+}
+
+function attachProcess(server, proc) {
+  server.proc = proc;
   proc.stdout.on('data', function (chunk) {
     onStdout(server, chunk);
   });
@@ -293,11 +334,6 @@ function startServer(serverKey, def, root) {
   proc.on('exit', function () {
     retire(server);
   });
-  server.ready = initializeServer(server, def).catch(function (err) {
-    retire(server);
-    throw err;
-  });
-  return server;
 }
 
 function getServer(match, root) {
@@ -442,6 +478,7 @@ function setSender(fn) {
 }
 
 module.exports = {
+  setStatusNotifier,
   setSender: setSender,
   open: open,
   change: change,

@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('cordoval', {
   writeFile: (projectDir, relPath, content) => ipcRenderer.invoke('file:write', projectDir, relPath, content),
   initialProject: () => ipcRenderer.invoke('app:initialProject'),
   openrouterSignIn: () => ipcRenderer.invoke('oauth:openrouter'),
+  onLspStatus: (cb) => ipcRenderer.on('lsp:status', (e, st) => cb(st)),
   lspOpen: (projectDir, relPath, text) => ipcRenderer.invoke('lsp:open', projectDir, relPath, text),
   lspChange: (projectDir, relPath, text) => ipcRenderer.invoke('lsp:change', projectDir, relPath, text),
   lspClose: (projectDir, relPath) => ipcRenderer.invoke('lsp:close', projectDir, relPath),
