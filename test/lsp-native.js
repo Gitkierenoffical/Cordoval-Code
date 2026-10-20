@@ -14,8 +14,8 @@ const CASES = {
   const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await page.waitForTimeout(7000);
-  if (c.dir) { await page.click(`.tree-row:has-text("${c.dir}"), text=${c.dir}`).catch(() => {}); await page.waitForTimeout(1500); }
-  await page.click('text=' + c.open);
+  if (c.dir) await page.evaluate((p) => window.CodeEditor.open(p), c.dir + '/' + c.open);
+  else await page.click('text=' + c.open);
   let markers = []; const t0 = Date.now(); let st = '';
   while (Date.now() - t0 < (Number(process.env.WAIT_MS) || 300000)) {
     await page.waitForTimeout(3000);
