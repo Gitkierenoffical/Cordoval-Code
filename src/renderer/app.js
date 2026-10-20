@@ -315,6 +315,7 @@
     els.titleProject.textContent = state.directory || 'No project open';
     els.titleProject.title = state.directory || '';
     els.sidebarProjectName.textContent = name;
+    document.dispatchEvent(new CustomEvent('cordoval:project-changed', { detail: { directory: state.directory } }));
   }
 
   async function refreshSessions() {

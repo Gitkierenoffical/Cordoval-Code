@@ -40,6 +40,10 @@
     { id: 'theme.toggle', title: 'Toggle light or dark mode', keys: [], group: 'General', run: () => A().toggleTheme() },
     { id: 'theme.pick', title: 'Choose colour theme', keys: [], group: 'General', run: () => pickTheme() },
     { id: 'project.open', title: 'Open project folder', keys: ['mod+o', 'mod+shift+o'], group: 'Project', run: click('btn-switch-project') },
+    { id: 'tab.new', title: 'New project tab', keys: ['mod+t'], group: 'Project', run: () => window.ProjectTabs && window.ProjectTabs.newTab() },
+    { id: 'tab.close', title: 'Close project tab', keys: ['mod+w'], group: 'Project', run: () => window.ProjectTabs && window.ProjectTabs.closeActive() },
+    { id: 'tab.next', title: 'Next project tab', keys: ['ctrl+tab', 'mod+pagedown'], group: 'Project', run: () => window.ProjectTabs && window.ProjectTabs.cycle(1) },
+    { id: 'tab.prev', title: 'Previous project tab', keys: ['ctrl+shift+tab', 'mod+pageup'], group: 'Project', run: () => window.ProjectTabs && window.ProjectTabs.cycle(-1) },
     { id: 'project.template', title: 'New project from template', keys: [], group: 'Project', run: click('btn-welcome-template') },
     { id: 'session.new', title: 'New session', keys: ['mod+shift+s', 'mod+n'], group: 'Session', run: () => A().newSession() },
     { id: 'session.prev', title: 'Previous session', keys: ['alt+arrowup'], group: 'Session', run: () => moveSession(-1) },
@@ -68,6 +72,30 @@
     { id: 'diagnostics.open', title: 'Show diagnostics', keys: ['mod+shift+m'], group: 'Files', run: () => A().switchRightTab('diagnostics') },
     { id: 'terminal.toggle', title: 'Toggle terminal', keys: ['ctrl+`'], group: 'Files', run: () => A().toggleTerminal() },
   ];
+
+  // User keybind overrides: { commandId: ['mod+shift+x', ...] }. An empty list unbinds.
+  const KB_KEY = 'cordoval.keybinds';
+  let overrides = {};
+  try { overrides = JSON.parse(localStorage.getItem(KB_KEY) || '{}') || {}; } catch (e) { overrides = {}; }
+  for (const c of COMMANDS) c.defaultKeys = c.keys.slice();
+  function applyOverrides() { for (const c of COMMANDS) c.keys = Array.isArray(overrides[c.id]) ? overrides[c.id].slice() : c.defaultKeys.slice(); }
+  function saveOverrides() { try { localStorage.setItem(KB_KEY, JSON.stringify(overrides)); } catch (e) {} applyOverrides(); }
+  function setKeys(id, keys) {
+    const c = COMMANDS.find((x) => x.id === id); if (!c) return null;
+    if (JSON.stringify(keys) === JSON.stringify(c.defaultKeys)) delete overrides[id]; else overrides[id] = keys.slice();
+    // A chord can only belong to one command: take it away from any other.
+    const taken = [];
+    for (const o of COMMANDS) {
+      if (o.id === id) continue;
+      const cur = Array.isArray(overrides[o.id]) ? overrides[o.id] : o.defaultKeys;
+      const left = cur.filter((k) => !keys.includes(k));
+      if (left.length !== cur.length) { overrides[o.id] = left; taken.push(o.title); }
+    }
+    saveOverrides();
+    return taken;
+  }
+  function resetAll() { overrides = {}; saveOverrides(); }
+  applyOverrides();
 
   function fmt(k) {
     return k.split(' ').map((chord) => chord.split('+').map((p) => ({ mod: MOD, shift: 'Shift', alt: isMac ? 'Option' : 'Alt', ctrl: 'Ctrl', arrowup: 'Up', arrowdown: 'Down', escape: 'Esc', tab: 'Tab' }[p] || (p.length === 1 ? p.toUpperCase() : p))).join('+')).join(' then ');
@@ -98,7 +126,16 @@
   }
 
   let lastEsc = 0;
+  let capture = null; // function(chord) while recording a new shortcut
   function onKey(e) {
+    if (capture) {
+      const ch = chordOf(e);
+      if (!ch) return;
+      e.preventDefault(); e.stopPropagation();
+      const fn = capture; capture = null;
+      fn(ch === 'escape' ? null : ch);
+      return;
+    }
     if (e.defaultPrevented) return;
     const chord = chordOf(e);
     if (!chord) return;
@@ -224,30 +261,56 @@
       m.className = 'modal shortcuts-modal';
       const h = document.createElement('header'); h.className = 'modal-header';
       const t = document.createElement('h2'); t.textContent = 'Keyboard shortcuts'; h.appendChild(t);
-      const x = document.createElement('button'); x.className = 'icon-btn'; x.textContent = 'Close'; x.id = 'btn-shortcuts-close'; x.addEventListener('click', () => { back.hidden = true; }); h.appendChild(x);
+      const reset = document.createElement('button'); reset.className = 'btn btn-ghost btn-sm'; reset.id = 'btn-shortcuts-reset'; reset.textContent = 'Reset all';
+      reset.addEventListener('click', () => { resetAll(); fill(); });
+      h.appendChild(reset);
+      const x = document.createElement('button'); x.className = 'icon-btn'; x.textContent = 'Close'; x.id = 'btn-shortcuts-close'; x.addEventListener('click', () => { back.hidden = true; capture = null; }); h.appendChild(x);
       m.appendChild(h);
-      const body = document.createElement('div'); body.className = 'modal-body shortcuts-body';
-      const groups = {};
-      for (const c of COMMANDS) if (c.keys.length) (groups[c.group] = groups[c.group] || []).push(c);
-      for (const g of Object.keys(groups)) {
-        const sec = document.createElement('section');
-        const gh = document.createElement('h3'); gh.textContent = g; sec.appendChild(gh);
-        for (const c of groups[g]) {
-          const row = document.createElement('div'); row.className = 'shortcut-row';
-          const n = document.createElement('span'); n.textContent = c.title; row.appendChild(n);
-          const ks = document.createElement('span');
-          c.keys.forEach((k, i) => { if (i) ks.appendChild(document.createTextNode(' or ')); const kb = document.createElement('kbd'); kb.textContent = fmt(k); ks.appendChild(kb); });
-          row.appendChild(ks); sec.appendChild(row);
-        }
-        body.appendChild(sec);
-      }
+      const hint = document.createElement('p'); hint.className = 'shortcuts-hint'; hint.textContent = 'Click a shortcut to change it, then press the new keys. Esc cancels. Backspace removes it.';
+      m.appendChild(hint);
+      const body = document.createElement('div'); body.className = 'modal-body shortcuts-body'; body.id = 'shortcuts-body';
       m.appendChild(body); back.appendChild(m); document.body.appendChild(back);
-      back.addEventListener('mousedown', (e) => { if (e.target === back) back.hidden = true; });
-      back.addEventListener('keydown', (e) => { if (e.key === 'Escape') back.hidden = true; });
+      back.addEventListener('mousedown', (e) => { if (e.target === back) { back.hidden = true; capture = null; } });
+      back.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !capture) back.hidden = true; });
     }
+    fill();
     back.hidden = false;
   }
 
+  function fill() {
+    const body = document.getElementById('shortcuts-body');
+    if (!body) return;
+    body.textContent = '';
+    const groups = {};
+    for (const c of COMMANDS) (groups[c.group] = groups[c.group] || []).push(c);
+    for (const g of Object.keys(groups)) {
+      const sec = document.createElement('section');
+      const gh = document.createElement('h3'); gh.textContent = g; sec.appendChild(gh);
+      for (const c of groups[g]) {
+        const row = document.createElement('div'); row.className = 'shortcut-row'; row.dataset.command = c.id;
+        const n = document.createElement('span'); n.textContent = c.title; row.appendChild(n);
+        const ks = document.createElement('button'); ks.type = 'button'; ks.className = 'shortcut-keys';
+        if (!c.keys.length) { const none = document.createElement('span'); none.className = 'shortcut-none'; none.textContent = 'Not set'; ks.appendChild(none); }
+        c.keys.forEach((k, i) => { if (i) ks.appendChild(document.createTextNode(' ')); const kb = document.createElement('kbd'); kb.textContent = fmt(k); ks.appendChild(kb); });
+        if (overrides[c.id]) row.classList.add('is-custom');
+        ks.addEventListener('click', () => {
+          ks.textContent = 'Press keys...';
+          ks.classList.add('is-recording');
+          capture = (chord) => {
+            if (chord === 'backspace') { setKeys(c.id, []); }
+            else if (chord) {
+              const taken = setKeys(c.id, [chord]);
+              if (taken && taken.length && A().toast) A().toast('Moved ' + fmt(chord) + ' from ' + taken.join(', ') + '.');
+            }
+            fill();
+          };
+        });
+        row.appendChild(ks); sec.appendChild(row);
+      }
+      body.appendChild(sec);
+    }
+  }
+
   document.addEventListener('keydown', onKey, true);
-  window.Palette = { open, close, openHelp, pickTheme, openFilePicker, commands: COMMANDS, fmt };
+  window.Palette = { open, close, openHelp, pickTheme, openFilePicker, commands: COMMANDS, fmt, setKeys, resetAll };
 })();

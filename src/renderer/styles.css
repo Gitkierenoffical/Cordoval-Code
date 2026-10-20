@@ -2366,3 +2366,21 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .diff-comment-actions { display: flex; gap: 6px; margin-top: 4px; }
 .review-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--accent-soft); font-size: 12px; }
 .review-bar #review-count { flex: 1; font-weight: 600; }
+
+/* Project tabs */
+.project-tabs { display: flex; align-items: stretch; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; height: 100%; scrollbar-width: none; }
+.project-tabs::-webkit-scrollbar { display: none; }
+.project-tab { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; max-width: 200px; font-size: 12px; color: var(--muted); border-radius: 7px 7px 0 0; cursor: pointer; margin-top: 6px; border: 1px solid transparent; border-bottom: 0; }
+.project-tab:hover { color: var(--text); background: var(--panel-2, var(--bg)); }
+.project-tab.is-active { color: var(--text); background: var(--bg); border-color: var(--border); font-weight: 600; }
+.project-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-tab-close { border: 0; background: none; color: var(--faint); width: 18px; height: 18px; border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+.project-tab-close:hover { background: var(--border); color: var(--text); }
+.project-tab-add { border: 0; background: none; color: var(--muted); font-size: 16px; padding: 0 10px; cursor: pointer; margin-top: 6px; border-radius: 6px; }
+.project-tab-add:hover { background: var(--panel-2, var(--bg)); color: var(--text); }
+.shortcuts-hint { margin: 0; padding: 6px 18px 0; font-size: 12px; color: var(--muted); }
+.shortcut-keys { border: 1px solid transparent; background: none; border-radius: 6px; padding: 2px 4px; cursor: pointer; color: inherit; font: inherit; }
+.shortcut-keys:hover { border-color: var(--border-strong); }
+.shortcut-keys.is-recording { border-color: var(--accent); color: var(--accent); font-size: 12px; }
+.shortcut-row.is-custom kbd { border-color: var(--accent); color: var(--accent); }
+.shortcut-none { font-size: 11px; color: var(--faint); }
