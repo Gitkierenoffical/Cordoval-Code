@@ -9,6 +9,7 @@ const engine = require('./engine');
 const keys = require('./keys');
 const oauth = require('./oauth');
 const updater = require('./updater');
+const engineConfig = require('./engine-config');
 const lsp = require('./lsp');
 
 let win = null;
@@ -163,6 +164,18 @@ function registerIpc() {
     return keys.deleteKey(provider);
   });
 
+  ipcMain.handle('econfig:get', () => engineConfig.read());
+  ipcMain.handle('econfig:path', () => engineConfig.configFile());
+  ipcMain.handle('econfig:set', async (event, obj) => {
+    engineConfig.write(obj);
+    if (enginePromise) await enginePromise.catch(() => {});
+    const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
+    enginePromise = Promise.resolve(info.url);
+    return info.url;
+  });
+  ipcMain.handle('eproject:list', (event, dir, kind) => engineConfig.listProject(dir, kind));
+  ipcMain.handle('eproject:write', (event, dir, kind, name, content) => engineConfig.writeProject(dir, kind, name, content));
+  ipcMain.handle('eproject:delete', (event, dir, kind, name) => engineConfig.deleteProject(dir, kind, name));
   ipcMain.handle('update:check', () => updater.check({ ...DEFAULT_SETTINGS, ...readSettings() }));
   ipcMain.handle('update:download', () => updater.download());
   ipcMain.handle('update:install', () => updater.install());
