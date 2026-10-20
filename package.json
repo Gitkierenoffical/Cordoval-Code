@@ -21,6 +21,11 @@
       "LICENSE",
       "NOTICE.md"
     ],
+    "asarUnpack": [
+      "node_modules/typescript/**",
+      "node_modules/typescript-language-server/**",
+      "node_modules/pyright/**"
+    ],
     "extraResources": [
       {
         "from": "vendor/${os}",

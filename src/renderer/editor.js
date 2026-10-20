@@ -327,11 +327,15 @@
     activeKey = key;
     editor.setModel(tab.model);
     editor.focus();
+    setStatus(tab.lspStatus || '');
     showEditorPane();
   }
 
-  function disposeAll() {
+  function disposeAll(dirOverride) {
+    const dir = dirOverride != null ? dirOverride : editorDir;
     tabs.forEach(function (tab) {
+      if (tab.lspTimer) clearTimeout(tab.lspTimer);
+      sendLspClose(tab, dir);
       if (tab.listener) tab.listener.dispose();
       tab.model.dispose();
     });
@@ -341,51 +345,114 @@
     showChat();
   }
 
-  function lspServerList(data) {
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.servers)) return data.servers;
-    if (data && typeof data === 'object') {
-      return Object.keys(data)
-        .map(function (key) {
-          return data[key];
-        })
-        .filter(function (value) {
-          return value && typeof value === 'object';
-        });
-    }
-    return [];
+  function samePath(a, b) {
+    const left = String(a || '').replace(/\\/g, '/');
+    const right = String(b || '').replace(/\\/g, '/');
+    if (left === right) return true;
+    return left.toLowerCase() === right.toLowerCase();
   }
 
-  function lspIsActive(item) {
-    const status = String((item && (item.status || item.state)) || '').toLowerCase();
-    if (!status) return true;
-    return /ready|active|running|ok|started|healthy/.test(status) && !/error|crash|stopped|failed|down/.test(status);
+  function tabAbsPath(tab, dirOverride) {
+    const dir = String(dirOverride != null ? dirOverride : editorDir || '').replace(/\\/g, '/').replace(/\/+$/, '');
+    const rel = String(tab.relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    return dir ? dir + '/' + rel : rel;
   }
 
-  async function checkLsp(relPath) {
-    if (!window.Api || !window.Api.lsp) return;
+  function markerSeverity(severity) {
+    if (!monacoApi) return 1;
+    const map = {
+      1: monacoApi.MarkerSeverity.Error,
+      2: monacoApi.MarkerSeverity.Warning,
+      3: monacoApi.MarkerSeverity.Info,
+      4: monacoApi.MarkerSeverity.Hint,
+    };
+    return map[severity] || monacoApi.MarkerSeverity.Error;
+  }
+
+  function toMarkers(diagnostics) {
+    const list = Array.isArray(diagnostics) ? diagnostics : [];
+    return list.map(function (d) {
+      const range = (d && d.range) || {};
+      const start = range.start || { line: 0, character: 0 };
+      const end = range.end || start;
+      const marker = {
+        startLineNumber: (start.line || 0) + 1,
+        startColumn: (start.character || 0) + 1,
+        endLineNumber: (end.line || 0) + 1,
+        endColumn: (end.character || 0) + 1,
+        message: String((d && d.message) || ''),
+        severity: markerSeverity(d && d.severity),
+      };
+      if (d && d.source) marker.source = String(d.source);
+      if (d && d.code != null) marker.code = typeof d.code === 'object' ? d.code.value : d.code;
+      return marker;
+    });
+  }
+
+  function countMarkers(markers) {
+    const counts = { errors: 0, warnings: 0, infos: 0, hints: 0 };
+    if (!monacoApi) return counts;
+    markers.forEach(function (m) {
+      if (m.severity === monacoApi.MarkerSeverity.Error) counts.errors++;
+      else if (m.severity === monacoApi.MarkerSeverity.Warning) counts.warnings++;
+      else if (m.severity === monacoApi.MarkerSeverity.Info) counts.infos++;
+      else if (m.severity === monacoApi.MarkerSeverity.Hint) counts.hints++;
+    });
+    return counts;
+  }
+
+  function formatLspStatus(counts) {
+    const parts = [];
+    if (counts.errors) parts.push(counts.errors + (counts.errors === 1 ? ' error' : ' errors'));
+    if (counts.warnings) parts.push(counts.warnings + (counts.warnings === 1 ? ' warning' : ' warnings'));
+    if (counts.infos) parts.push(counts.infos + (counts.infos === 1 ? ' info' : ' infos'));
+    if (counts.hints) parts.push(counts.hints + (counts.hints === 1 ? ' hint' : ' hints'));
+    return parts.length ? 'LSP: ' + parts.join(', ') : '';
+  }
+
+  function applyDiagnostics(data) {
+    if (!monacoApi || !data) return;
+    tabs.forEach(function (tab, key) {
+      if (!samePath(tabAbsPath(tab), data.path)) return;
+      const markers = toMarkers(data.diagnostics);
+      monacoApi.editor.setModelMarkers(tab.model, 'lsp', markers);
+      tab.lspStatus = formatLspStatus(countMarkers(markers));
+      if (key === activeKey) setStatus(tab.lspStatus);
+    });
+  }
+
+  function sendLspOpen(tab, text) {
+    if (!window.cordoval || !window.cordoval.lspOpen || !editorDir) return;
     try {
-      const data = await window.Api.lsp();
-      const servers = lspServerList(data);
-      const active = servers.filter(lspIsActive);
-      const lang = languageFor(relPath);
-      const names = active
-        .map(function (item) {
-          return String((item && (item.name || item.id || item.serverID)) || '').trim();
-        })
-        .filter(Boolean);
-      let text;
-      if (names.length) {
-        text = 'LSP: ' + names.join(', ') + ' active';
-      } else if (lang && lang !== 'plaintext') {
-        text = 'LSP: no active server for ' + lang;
-      } else {
-        text = 'LSP: no active servers';
-      }
-      setStatus(text);
-    } catch (err) {
-      setStatus('LSP: unavailable');
-    }
+      const result = window.cordoval.lspOpen(editorDir, tab.relPath, text);
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (err) {}
+  }
+
+  function sendLspChange(tab) {
+    if (!window.cordoval || !window.cordoval.lspChange || !editorDir) return;
+    try {
+      const result = window.cordoval.lspChange(editorDir, tab.relPath, tab.model.getValue());
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (err) {}
+  }
+
+  function sendLspClose(tab, dirOverride) {
+    if (!window.cordoval || !window.cordoval.lspClose) return;
+    const dir = dirOverride != null ? dirOverride : editorDir;
+    if (!dir) return;
+    try {
+      const result = window.cordoval.lspClose(dir, tab.relPath);
+      if (result && typeof result.catch === 'function') result.catch(function () {});
+    } catch (err) {}
+  }
+
+  function scheduleLspChange(tab) {
+    if (tab.lspTimer) clearTimeout(tab.lspTimer);
+    tab.lspTimer = setTimeout(function () {
+      tab.lspTimer = null;
+      sendLspChange(tab);
+    }, 400);
   }
 
   async function open(relPath) {
@@ -398,8 +465,9 @@
     }
     const dir = (window.Api.getDirectory && window.Api.getDirectory()) || '';
     if (editorDir !== dir) {
+      const oldDir = editorDir;
       editorDir = dir;
-      disposeAll();
+      disposeAll(oldDir);
     }
     const monaco = await ensureMonaco();
     if (tabs.has(relPath)) {
@@ -414,17 +482,19 @@
       throw new Error('Could not open ' + relPath + ': ' + (err && err.message ? err.message : String(err)));
     }
     const model = monaco.editor.createModel(content, languageFor(relPath), modelUri(monaco, relPath));
-    const tab = { relPath: relPath, model: model, saved: content, dirty: false, listener: null };
+    const tab = { relPath: relPath, model: model, saved: content, dirty: false, listener: null, lspStatus: '', lspTimer: null };
     tab.listener = model.onDidChangeContent(function () {
       const dirty = model.getValue() !== tab.saved;
       if (dirty !== tab.dirty) {
         tab.dirty = dirty;
         renderTabs();
       }
+      scheduleLspChange(tab);
     });
     tabs.set(relPath, tab);
     ensureEditor(monaco);
     activate(relPath);
+    sendLspOpen(tab, content);
   }
 
   async function save() {
@@ -450,7 +520,6 @@
     } catch (err) {
       // CustomEvent is available in Electron; ignore otherwise
     }
-    checkLsp(tab.relPath);
     return true;
   }
 
@@ -462,6 +531,8 @@
     }
     const tab = tabs.get(key);
     if (tab) {
+      if (tab.lspTimer) clearTimeout(tab.lspTimer);
+      sendLspClose(tab);
       if (tab.listener) tab.listener.dispose();
       tab.model.dispose();
       tabs.delete(key);
@@ -507,9 +578,17 @@
         close();
       });
     }
+    if (window.cordoval && typeof window.cordoval.onLspDiagnostics === 'function') {
+      window.cordoval.onLspDiagnostics(function (data) {
+        try {
+          applyDiagnostics(data);
+        } catch (err) {}
+      });
+    }
     document.addEventListener('cordoval:project-changed', function () {
+      const oldDir = editorDir;
       editorDir = (window.Api && window.Api.getDirectory && window.Api.getDirectory()) || '';
-      disposeAll();
+      disposeAll(oldDir);
     });
     bindGlobalKeys();
   }

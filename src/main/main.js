@@ -8,6 +8,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell, session } = require('electro
 const engine = require('./engine');
 const keys = require('./keys');
 const oauth = require('./oauth');
+const lsp = require('./lsp');
 
 let win = null;
 let enginePromise = null;
@@ -196,6 +197,11 @@ function registerIpc() {
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, content, 'utf8');
+    try {
+      lsp.save(root, relPath, content);
+    } catch (err) {
+      // a save notification must never break writing the file
+    }
     return true;
   });
 
@@ -204,6 +210,26 @@ function registerIpc() {
       storeKey: (provider, value) => keys.setKey(provider, value),
     })
   );
+
+  ipcMain.handle('lsp:open', (event, projectDir, relPath, text) => {
+    if (typeof projectDir !== 'string' || !projectDir.trim()) throw new Error('Missing project directory.');
+    if (typeof relPath !== 'string' || !relPath.trim()) throw new Error('Missing file path.');
+    if (typeof text !== 'string') throw new Error('Invalid file content.');
+    return lsp.open(projectDir, relPath, text);
+  });
+
+  ipcMain.handle('lsp:change', (event, projectDir, relPath, text) => {
+    if (typeof projectDir !== 'string' || !projectDir.trim()) throw new Error('Missing project directory.');
+    if (typeof relPath !== 'string' || !relPath.trim()) throw new Error('Missing file path.');
+    if (typeof text !== 'string') throw new Error('Invalid file content.');
+    return lsp.change(projectDir, relPath, text);
+  });
+
+  ipcMain.handle('lsp:close', (event, projectDir, relPath) => {
+    if (typeof projectDir !== 'string' || !projectDir.trim()) throw new Error('Missing project directory.');
+    if (typeof relPath !== 'string' || !relPath.trim()) throw new Error('Missing file path.');
+    return lsp.close(projectDir, relPath);
+  });
 }
 
 function createWindow() {
@@ -258,6 +284,9 @@ app.whenReady().then(() => {
     }
   );
   registerIpc();
+  lsp.setSender((channel, payload) => {
+    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  });
   createWindow();
   startEngine().catch(() => {
     // surfaced to the renderer through the engine:url channel
@@ -274,4 +303,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   engine.stop();
+  lsp.stopAll();
 });
