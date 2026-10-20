@@ -61,6 +61,9 @@
     "@xterm/xterm": "^6.0.0",
     "diff": "^9.0.0",
     "marked": "^18.1.1",
-    "monaco-editor": "^0.52.2"
+    "monaco-editor": "^0.52.2",
+    "pyright": "^1.1.414",
+    "typescript": "^7.0.2",
+    "typescript-language-server": "^6.0.2"
   }
 }
