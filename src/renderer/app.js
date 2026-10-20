@@ -1328,7 +1328,21 @@
       case 'session.status': {
         const id = props.sessionID;
         const status = props.status || {};
-        const busy = status.type === 'busy';
+        // 'retry' means the engine is still working (waiting to retry the provider), so stay busy.
+        const busy = status.type === 'busy' || status.type === 'retry';
+        if (status.type === 'retry') {
+          const msg = String(status.message || (status.action && status.action.message) || 'provider error');
+          els.statusEngine.textContent = 'Retrying (attempt ' + (status.attempt || 1) + '): ' + msg.slice(0, 120);
+          if (id && (status.attempt || 0) >= 3 && FALLBACK_RE.test(msg) && state.lastPrompt && state.lastPrompt[id] && !state.lastPrompt[id].aborting) {
+            state.lastPrompt[id].aborting = true;
+            window.Api.abort(id).catch(function () {}).then(function () {
+              state.lastPrompt[id].aborting = false;
+              tryFreeModelFallback(id, msg);
+            });
+          }
+        } else if (els.statusEngine.textContent.indexOf('Retrying') === 0) {
+          els.statusEngine.textContent = 'Engine ready';
+        }
         if (id) {
           if (busy) state.busyBySession[id] = true;
           else delete state.busyBySession[id];
