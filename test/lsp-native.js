@@ -5,6 +5,7 @@ const L = process.env.LANG_ID || 'go';
 const CASES = {
   go: { files: { 'go.mod': 'module demo\n\ngo 1.21\n', 'main.go': 'package main\n\nfunc main() {\n\tvar x int = "text"\n\t_ = x\n}\n' }, open: 'main.go' },
   rust: { files: { 'Cargo.toml': '[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n', 'src/main.rs': 'fn main() {\n    let x: i32 = "text";\n    println!("{}", x);\n}\n' }, open: 'main.rs', dir: 'src' },
+  dart: { files: { 'pubspec.yaml': 'name: demo\nenvironment:\n  sdk: ^3.0.0\n', 'main.dart': 'void main() {\n  int x = "text";\n  print(x);\n}\n' }, open: 'main.dart' },
   kotlin: { files: { 'settings.gradle.kts': 'rootProject.name = "demo"\n', 'Main.kt': 'fun main() {\n    val x: Int = "text"\n    println(x)\n}\n' }, open: 'Main.kt' },
 };
 (async () => {
