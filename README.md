@@ -25,6 +25,12 @@ attachments (button, drag and drop, paste), slash commands (/new, /plan, /build,
 friendly model names with Free labels, keychain warning, and a lighter OpenCode-style layout.
 Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `test/templates.js`.
 
+- Customise panel (Ctrl+;): MCP servers (local and remote, enable/disable, connect, OAuth sign-in, tool lists), custom agents and slash commands (global config or project `.opencode/`), and per-tool permissions with shell command rules.
+- Custom primary agents appear next to Build and Plan.
+- Command palette (Ctrl+K or Ctrl+Shift+P), Go to file (Ctrl+P), OpenCode desktop keybinds and a shortcuts panel (Ctrl+/).
+- 37 colour themes: Cordoval lavender (default) plus OpenCode's desktop themes, each in light and dark.
+- Session history: search across sessions, rename, delete, export to Markdown, export and import JSON. Public share is always off.
+
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
@@ -48,3 +54,7 @@ On Windows natively: install Node 20, Git, then `npm install`, `bash scripts/fet
 
 ## Licence
 MIT. Bundles OpenCode (MIT) - see NOTICE.md.
+
+## Tests
+
+Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
