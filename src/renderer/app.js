@@ -623,6 +623,8 @@
     if (type === 'step-start' || type === 'step-finish') {
       return null;
     }
+    // Engine-generated text (e.g. the contents of an @-mentioned file) is context, not chat.
+    if (type === 'text' && part.synthetic) return null;
     if (type === 'reasoning') {
       const reasoningText = String(part.text == null ? '' : part.text);
       if (!reasoningText.trim()) return null;

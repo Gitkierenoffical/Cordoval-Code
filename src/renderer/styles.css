@@ -2384,3 +2384,36 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .shortcut-keys.is-recording { border-color: var(--accent); color: var(--accent); font-size: 12px; }
 .shortcut-row.is-custom kbd { border-color: var(--accent); color: var(--accent); }
 .shortcut-none { font-size: 11px; color: var(--faint); }
+
+/* ---------- Round 6 visual pass: closer to OpenCode desktop ----------
+   Flatter surfaces, quieter chrome, compact type, controls as text-like pills.
+   Cordoval accent and lavender theme stay. */
+.app { grid-template-rows: 40px 1fr auto !important; }
+.titlebar { height: 40px !important; min-height: 40px !important; gap: 10px !important; padding: 0 10px !important; }
+.brand-name { font-size: 13px; }
+.sidebar { background: var(--bg) !important; }
+.sidebar-top { padding-bottom: 6px; }
+#btn-new-session { background: transparent !important; color: var(--text) !important; border: 1px solid var(--border-strong) !important; box-shadow: none !important; font-weight: 500; justify-content: flex-start; padding: 6px 10px; height: 32px; }
+#btn-new-session:hover { background: var(--panel) !important; border-color: var(--accent) !important; }
+.sidebar-label { font-size: 10.5px !important; letter-spacing: .07em; color: var(--faint) !important; }
+.session-item { border-radius: 6px !important; padding: 6px 8px !important; border-left: 0 !important; background: transparent !important; box-shadow: none !important; }
+.session-item:hover { background: var(--panel) !important; }
+.session-item.is-active { background: var(--panel) !important; box-shadow: inset 2px 0 0 var(--accent) !important; }
+.session-meta { font-size: 10.5px !important; }
+.session-tool-buttons .btn { color: var(--faint); }
+.messages { font-size: 13.5px; }
+.composer { border-radius: 10px !important; box-shadow: 0 1px 0 var(--border), 0 6px 24px rgba(0, 0, 0, 0.05) !important; border: 1px solid var(--border-strong) !important; }
+.composer-toolbar { gap: 4px !important; flex-wrap: nowrap; }
+.composer-hint { display: none !important; }
+.model-picker { border: 0 !important; background-color: transparent !important; box-shadow: none !important; font-family: inherit !important; font-size: 12px !important; color: var(--muted) !important; padding: 4px 22px 4px 8px !important; border-radius: 6px !important; cursor: pointer; max-width: 230px; }
+.model-picker:hover { background-color: var(--panel-2, var(--bg)) !important; color: var(--text) !important; }
+.agent-toggle { background: transparent !important; border: 0 !important; padding: 0 !important; gap: 2px; }
+.agent-btn { font-size: 12px !important; padding: 4px 9px !important; border-radius: 6px !important; }
+.agent-btn.is-active { background: var(--accent-soft) !important; color: var(--accent) !important; box-shadow: none !important; }
+.btn-attach { color: var(--muted) !important; }
+.right-tab { font-size: 12px !important; }
+.statusbar, .status-bar { font-size: 11px; }
+.tool-card { border-radius: 8px !important; }
+.modal { border-radius: 12px !important; }
+.message-user .bubble { background: var(--panel) !important; border: 1px solid var(--border) !important; box-shadow: none !important; }
+.message-assistant .bubble { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-left: 0 !important; }
