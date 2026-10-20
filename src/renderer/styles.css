@@ -2353,3 +2353,4 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .mention-agent { color: var(--accent); }
 .mention-value { font-family: var(--mono, ui-monospace, monospace); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mention-detail { color: var(--faint); font-size: 11px; }
+.variant-picker { max-width: 150px; }

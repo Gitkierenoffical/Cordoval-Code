@@ -869,7 +869,35 @@
     return known[provider.id] || PROVIDER_LABELS[provider.id] || provider.name || provider.id;
   }
 
+  // Model variants (reasoning effort and similar) come from the engine's model metadata.
+  function modelVariants(model) {
+    if (!model) return [];
+    const provider = (state.providers || []).find(function (p) { return p.id === model.providerID; });
+    const info = provider && provider.models && provider.models[model.modelID];
+    return info && info.variants ? Object.keys(info.variants) : [];
+  }
+  function storedVariant(sessionId) {
+    try { return localStorage.getItem('cordoval:variant:' + (sessionId || '')) || ''; } catch (e) { return ''; }
+  }
+  function saveVariant(sessionId, value) {
+    try { if (value) localStorage.setItem('cordoval:variant:' + sessionId, value); else localStorage.removeItem('cordoval:variant:' + sessionId); } catch (e) {}
+  }
+  const VARIANT_LABELS = { none: 'No reasoning', minimal: 'Minimal effort', low: 'Low effort', medium: 'Medium effort', high: 'High effort', xhigh: 'Extra high effort', max: 'Max effort' };
+  function renderVariantPicker() {
+    const sel = $('variant-picker');
+    const wrap = $('variant-wrap');
+    if (!sel || !wrap) return;
+    const list = modelVariants(currentModel());
+    wrap.hidden = !list.length;
+    sel.textContent = '';
+    const def = document.createElement('option'); def.value = ''; def.textContent = 'Default effort'; sel.appendChild(def);
+    for (const v of list) { const o = document.createElement('option'); o.value = v; o.textContent = VARIANT_LABELS[v] || v; sel.appendChild(o); }
+    const cur = storedVariant(state.sessionId);
+    sel.value = list.indexOf(cur) >= 0 ? cur : '';
+  }
+
   function renderModelPicker() {
+    setTimeout(renderVariantPicker, 0);
     const select = els.modelPicker;
     clear(select);
     const current = currentModel();
@@ -1000,6 +1028,8 @@
       agent: agent,
       parts: parts,
     };
+    const variant = storedVariant(state.sessionId);
+    if (variant && modelVariants(model).indexOf(variant) >= 0) payload.variant = variant;
     els.composerInput.value = '';
     state.attachments = [];
     renderAttachments();
@@ -2694,6 +2724,9 @@
       renderAgentToggle();
     });
 
+    $('variant-picker').addEventListener('change', function () {
+      saveVariant(state.sessionId, $('variant-picker').value);
+    });
     els.modelPicker.addEventListener('change', function () {
       const value = els.modelPicker.value || '';
       const parts = value.split('/');
@@ -2702,6 +2735,7 @@
         const modelID = parts.slice(1).join('/');
         saveModel(state.sessionId, { providerID: providerID, modelID: modelID });
         updateVisionWarning();
+        renderVariantPicker();
       }
     });
 

@@ -58,6 +58,7 @@
     { id: 'input.focus', title: 'Focus the message box', keys: ['ctrl+l'], group: 'Composer', run: focusComposer },
     { id: 'agent.cycle', title: 'Switch between Build and Plan', keys: ['mod+.', 'tab'], group: 'Composer', run: cycleAgent, tabOnlyInComposerEmpty: true },
     { id: 'model.choose', title: 'Choose model', keys: ["mod+'"], group: 'Composer', run: () => A().openModelPicker() },
+    { id: 'model.variant.cycle', title: 'Cycle reasoning effort', keys: ['mod+shift+d'], group: 'Composer', run: () => { const s = document.getElementById('variant-picker'); if (!s || document.getElementById('variant-wrap').hidden) return; s.selectedIndex = (s.selectedIndex + 1) % s.options.length; s.dispatchEvent(new Event('change')); A().toast(s.options[s.selectedIndex].textContent); } },
     { id: 'file.attach', title: 'Attach file or image', keys: ['mod+u'], group: 'Composer', run: click('btn-attach') },
     { id: 'slash.help', title: 'List slash commands', keys: [], group: 'Composer', run: () => A().openSlashHelp() },
     { id: 'file.open', title: 'Go to file', keys: ['mod+p'], group: 'Files', run: () => openFilePicker() },
