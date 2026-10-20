@@ -31,6 +31,13 @@ Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `te
 - 37 colour themes: Cordoval lavender (default) plus OpenCode's desktop themes, each in light and dark.
 - Session history: search across sessions, rename, delete, export to Markdown, export and import JSON. Public share is always off.
 
+- @-mentions in the message box for files, folders and agents, with autocomplete. Mentioned files are sent as context.
+- Reasoning effort / model variant picker per session (Ctrl+Shift+D cycles).
+- Per-line review comments on the Changes diff, sent to the agent in one message.
+- Project tabs in the title bar (Ctrl+T, Ctrl+W, Ctrl+Tab).
+- Rebindable keyboard shortcuts (Ctrl+/ then click a shortcut).
+- Customise changes to agents apply live; other changes wait until no session is running, then restart the engine, so nothing in flight is cut off.
+
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
@@ -57,4 +64,4 @@ MIT. Bundles OpenCode (MIT) - see NOTICE.md.
 
 ## Tests
 
-Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
+Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny, live-apply, mentions, variant, review, tabs-keys. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
