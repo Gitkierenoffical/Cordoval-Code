@@ -2301,3 +2301,7 @@ textarea:focus-visible:not(.composer-input) {
 .check-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 13px; }
 .field-label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
 .update-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* Keep the title bar (theme toggle, Settings) usable on the welcome screen. */
+.welcome { top: 44px; }
+.titlebar { position: relative; z-index: 21; }
