@@ -18,7 +18,7 @@ x-cordoval-token header, which main.js adds (with a loopback Origin) to the wind
   commands, revert/unrevert, session diffs. store.js persists one JSON file per session in userData/engine/sessions.
 - providers.js: OpenRouter (default), OpenAI, Anthropic, Groq, Google, xAI and OpenAI-compatible endpoints. Keys are
   added as headers inside a fetch wrapper, only for the provider's host. Models are listed from each provider's API.
-- tools.js / permission.js: read, write, edit, list, glob, grep, bash; allow/ask/deny rules with shell wildcards.
+- tools.js / permission.js / webfetch.js: read, write, edit, list, glob, grep, bash, webfetch, task; allow/ask/deny rules with shell wildcards.
 - git.js: snapshots in a private git dir per project (userData/engine/snapshot/<hash>); files.js: tree, content, grep, git status/diff.
 - mcp.js (MCP SDK, stdio + streamable HTTP/SSE), pty.js (node-pty over WebSocket), mock-model.js (tests only, CORDOVAL_MOCK_PROVIDER=1).
 - util.js redacts every known key from stored, streamed and returned data.
@@ -33,6 +33,9 @@ Presets: Ollama baseURL http://127.0.0.1:11434/v1, LM Studio http://127.0.0.1:12
 - POST /session/:id/revert {messageID} ; POST /session/:id/unrevert
 - GET /event  (SSE, `data: {type, properties}`). Types: message.updated {info}, message.part.updated {part}, message.part.delta {sessionID,messageID,partID,field,delta} (append delta to part[field]), session.updated {info}, session.status {sessionID,status:{type:"busy"|"idle"}}, session.diff {sessionID,diff:[{file,before,after,additions,deletions}]}, permission.asked {id,sessionID,permission,patterns,metadata}, permission.replied, session.error.
 - POST /permission/:requestID/reply {reply:"once"|"always"|"reject"}
+- GET /permission (pending), GET /permission/rules[?all=1] (saved always-allow rules: {id,directory,key,pattern}), DELETE /permission/rules/:id
+- GET /session?children=1 includes subagent sub-sessions (parentID), hidden by default.
+- Tools also include webfetch (permission key webfetch, value = host) and task (read-only subagent). Defaults when unset: webfetch ask, external_directory ask; Plan denies webfetch. Assistant info.cost is USD or null when the price is unknown.
 - GET /config/providers -> {providers:[{id,name,models:{id:{id,name}}}], default:{}}
 - GET /file?path=<rel> -> [{name,path,absolute,type:"file"|"directory",ignored}] ; GET /file/content?path=<rel> -> {type,content}
 - GET /file/status -> [{path,added,removed,status}]

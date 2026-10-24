@@ -33,6 +33,27 @@ Expo, Flutter, Node API, FastAPI) with builder system prompts.
 - Project tabs in the title bar (Ctrl+T, Ctrl+W, Ctrl+Tab) and rebindable shortcuts.
 - First-run permissions ask before sudo, rm -rf, git push, npm publish and curl | sh.
 
+## Approvals and safety
+
+- Shell commands, web fetches and any path outside the project folder ask first. The card shows the exact command, URL or path and a plain-English risk note for sudo, rm -rf, git push, publish, curl|sh and outside-project access.
+- Choose Allow once, Always allow or Deny. "Always allow" covers that exact command, website or path in that project; review and revoke these in Settings > Permissions.
+- A "Pending approvals" counter in the status bar shows when any session is waiting on you.
+- Plan mode is read-only and cannot fetch websites unless you allow it for the plan agent in config.
+
+## Web fetch, cost and subagents
+
+- `webfetch` turns a public page into markdown or text (5 MB and 120 s limits). Requests carry no keys or cookies and cannot reach this computer or a private network.
+- Each reply shows its cost from token usage: OpenRouter prices come from its model list, direct providers use a small built-in table (`src/main/engine/providers.js`). If the price is not known it says "unknown", never $0.
+- The `task` tool starts a research subagent in a hidden sub-session with read-only tools (read, list, glob, grep). Its approvals appear in the parent chat.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Chat with a tool call](screenshots/03-chat-done.png) | ![Changes](screenshots/04-changes-diff.png) |
+| ![Web fetch approval](screenshots/60-webfetch-approval.png) | ![Outside-project write](screenshots/64-outside-write-approval.png) |
+| ![Settings > Permissions](screenshots/63-permissions-page.png) | ![Cost](screenshots/62-cost.png) |
+
 ## Keys (bring your own)
 Settings > Providers: OpenRouter (default; key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
