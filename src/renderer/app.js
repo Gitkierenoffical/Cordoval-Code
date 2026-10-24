@@ -736,7 +736,7 @@
 
   function applyDelta(payload) {
     if (!payload || payload.sessionID !== state.sessionId) return;
-    const message = upsertMessage({ id: payload.messageID, sessionID: payload.sessionID, role: 'assistant' });
+    const message = findMessage(payload.messageID) || upsertMessage({ id: payload.messageID, sessionID: payload.sessionID, role: 'assistant', time: { created: Date.now() } });
     if (!message) return;
     let part = message.parts.find(function (p) { return p.id === payload.partID; });
     if (!part) {
@@ -1042,6 +1042,7 @@
       state.lastPrompt[state.sessionId] = { payload: payload, tried: [model.providerID + '/' + model.modelID] };
       // Mark busy before the request: a fast turn can finish (and send idle) before the reply lands.
       state.busyBySession[state.sessionId] = true;
+      const sentAt = Date.now();
       await window.Api.promptAsync(state.sessionId, payload).catch(function (err) { delete state.busyBySession[state.sessionId]; throw err; });
       updateStopButton();
       renderSessions();
@@ -1057,7 +1058,12 @@
           return Object.assign({ id: 'local-part-' + stamp + '-' + index }, part);
         }),
       };
-      state.messages.push(optimistic);
+      // Skip the placeholder when the engine's copy of this message already arrived.
+      const arrived = state.messages.some(function (m) {
+        return m.info && m.info.role === 'user' && m.info.sessionID === optimistic.info.sessionID &&
+          Number(m.info.time && m.info.time.created) >= sentAt - 1000 && !String(m.info.id).startsWith('local-');
+      });
+      if (!arrived) state.messages.push(optimistic);
       sortMessages();
       renderMessages();
       setTimeout(function () {
@@ -1504,7 +1510,9 @@
         const sessionID = part && (part.sessionID || (part.info && part.info.sessionID));
         if (sessionID && sessionID !== state.sessionId) return;
         if (!messageId) return;
-        const message = upsertMessage({ id: messageId, sessionID: sessionID || state.sessionId, role: 'assistant' });
+        // Parts can arrive for any message; only create a placeholder when it is unknown, so a
+        // user message's own parts never turn it into an assistant message.
+        const message = findMessage(messageId) || upsertMessage({ id: messageId, sessionID: sessionID || state.sessionId, role: 'assistant', time: { created: Date.now() } });
         if (!message || !part || !part.id) return;
         upsertPart(message, part);
         refreshMessageNode(message);
