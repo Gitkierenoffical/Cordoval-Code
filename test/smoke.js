@@ -12,6 +12,21 @@ const path = require('path');
   if (exe) r.version = (await page.evaluate(() => window.cordoval.appVersion())) === require('../package.json').version;
   await L.shot(page, '01-start.png');
   r.engineUp = !!(await page.evaluate(() => window.Api.engineUrl()));
+  if (exe) {
+    // Packaged build: L.launch sets CORDOVAL_MOCK_PROVIDER=1, yet the test provider must stay off.
+    const prov = await page.evaluate(() => window.Api.request('/config/providers'));
+    r.mockHookGated = !prov.providers.some(p => p.id === 'mock');
+    r.noMockInPicker = !(await page.$('#model-picker option[value^="mock/"]'));
+    await page.click('#btn-terminal-toggle'); await page.waitForTimeout(2500);
+    await page.click('#terminal-host').catch(() => {}); await page.keyboard.type('echo pty-ok-$((40+2))\n'); await page.waitForTimeout(2000);
+    r.terminal = (await page.textContent('#terminal-host')).includes('pty-ok-42');
+    await page.click('#btn-settings'); await page.waitForTimeout(800);
+    await page.click('.modal-tab[data-stab="permissions"]'); await page.waitForTimeout(800);
+    r.permissionsPage = (await page.textContent('#settings-permissions')).includes('Always-allow rules');
+    await L.shot(page, 'packaged-09.png');
+    await app.close();
+    return L.report('smoke-packaged', r);
+  }
   await L.send(page, 'Create a file named index.html containing Hello from Cordoval Code.');
   r.idle = await L.waitIdle(page, 60000);
   r.file = fs.existsSync(path.join(proj, 'index.html')) && fs.readFileSync(path.join(proj, 'index.html'), 'utf8').includes('Hello from Cordoval Code');
