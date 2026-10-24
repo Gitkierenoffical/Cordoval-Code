@@ -58,7 +58,7 @@ function readMarkdownDir(projectDir, kind) {
 
 const BUILT_IN_AGENTS = [
   { name: 'build', description: 'Default agent. Reads, writes and runs code.', mode: 'primary', builtIn: true },
-  { name: 'plan', description: 'Read-only planning. Cannot edit files; shell commands ask first.', mode: 'primary', builtIn: true, permission: { edit: 'deny', bash: { '*': 'ask' } } },
+  { name: 'plan', description: 'Read-only planning. Cannot edit files; shell commands ask first.', mode: 'primary', builtIn: true, permission: { edit: 'deny', bash: { '*': 'ask' }, webfetch: 'deny' } },
   { name: 'general', description: 'General-purpose helper for multi-step research.', mode: 'subagent', builtIn: true },
   { name: 'explore', description: 'Fast read-only exploration of the codebase.', mode: 'subagent', builtIn: true, permission: { edit: 'deny' } },
 ];

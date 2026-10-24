@@ -156,5 +156,27 @@ const defs = {
   },
 };
 
+defs.webfetch = {
+  description: 'Fetch a public web page and return it as markdown (default), text or html. Each new website asks the user first. Limits: 5 MB, 120 s.',
+  schema: { type: 'object', properties: { url: { type: 'string' }, format: { type: 'string', enum: ['markdown', 'text', 'html'] }, timeout: { type: 'number', description: 'Seconds, default 30' } }, required: ['url'] },
+  async run(input, ctx) {
+    ctx.title(String(input.url || '').slice(0, 120));
+    const r = await require('./webfetch').fetchUrl(input, (host, href) => ctx.ask('webfetch', host, 'Fetch ' + href), { signal: ctx.signal, allowPrivate: ctx.allowPrivateFetch });
+    ctx.meta({ url: r.url, bytes: r.bytes, contentType: r.contentType });
+    return 'Fetched ' + r.url + ' (' + r.bytes + ' bytes, ' + (r.contentType || 'unknown type') + ')\n\n' + r.text;
+  },
+};
+defs.task = {
+  description: 'Start a research subagent in its own sub-session. It can only read the project (read, list, glob, grep) and returns a report. Use it for broad searches so your own context stays small.',
+  schema: { type: 'object', properties: { description: { type: 'string', description: 'Three to five words' }, prompt: { type: 'string', description: 'Full instructions for the subagent' } }, required: ['description', 'prompt'] },
+  subagent: true,
+  async run(input, ctx) {
+    ctx.title(input.description || 'Research');
+    if (!ctx.task) throw new Error('Subagents are not available here.');
+    return ctx.task(input);
+  },
+};
+
 const READ_ONLY = ['read', 'list', 'glob', 'grep', 'bash'];
-module.exports = { defs, READ_ONLY };
+const SUBAGENT_TOOLS = ['read', 'list', 'glob', 'grep'];
+module.exports = { defs, READ_ONLY, SUBAGENT_TOOLS };

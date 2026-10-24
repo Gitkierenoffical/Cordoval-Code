@@ -24,6 +24,9 @@ function decide(prompt, system) {
   if ((m = text.match(/Run exactly this shell command[^:]*:\s*(.+)$/im))) return { tool: 'bash', input: { command: m[1].trim(), description: 'Run the requested command' } };
   if ((m = text.match(/^- (\S+) line \d+[^:]*: `([^`]*)`\s*\n\s*This should add, not subtract/m))) return { tool: 'edit', input: { filePath: m[1], oldString: m[2].trim(), newString: m[2].trim().replace(' - ', ' + ') } };
   if ((m = text.match(/(?:create|write) a file (?:named|called) (\S+?)\s+containing (?:the word |the text )?["']?([^"'.\n]+?)["']?(?:\.|\s+using|\s+Use|$)/i))) return { tool: 'write', input: { filePath: m[1], content: m[2].trim() + '\n' } };
+  if ((m = text.match(/Fetch the page (\S+)/i))) return { tool: 'webfetch', input: { url: m[1], format: 'markdown' } };
+  if ((m = text.match(/Research with a subagent: (.+)$/im))) return { tool: 'task', input: { description: 'Research the project', prompt: m[1].trim() } };
+  if (/^List the project files/i.test(text)) return { tool: 'list', input: { path: '.' } };
   if (/essay/i.test(text)) return { slow: true };
   if ((m = all.match(/code word is (\w+)/i))) return { text: m[1] };
   if (/attached image/i.test(text)) return { text: 'Red' };
