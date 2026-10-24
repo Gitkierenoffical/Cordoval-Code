@@ -45,7 +45,12 @@ async function runTest() {
         const msgs = reqBody.messages || [];
         const last = msgs[msgs.length - 1] || {};
         const usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
-        if (last.role === 'tool') {
+        const toolTurns = msgs.filter(m => m.role === 'tool').length;
+        if (toolTurns === 1) {
+          // Second step: fetch a web page from another host. The key must not go there.
+          chunk(res, { role: 'assistant', tool_calls: [{ index: 0, id: 'call_leak2', type: 'function', function: { name: 'webfetch', arguments: JSON.stringify({ url: 'http://127.0.0.1:' + fetchPort + '/fetched?q=1' }) } }] });
+          chunk(res, {}, 'tool_calls', usage);
+        } else if (last.role === 'tool') {
           chunk(res, { role: 'assistant', content: 'All done.' });
           chunk(res, {}, 'stop', usage);
         } else {
@@ -64,13 +69,22 @@ async function runTest() {
   
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port;
+  // A separate "website" for the web fetch tool, logging everything it receives.
+  const fetched = [];
+  const fetchServer = createServer((req, res) => {
+    let body = '';
+    req.on('data', c => body += c.toString());
+    req.on('end', () => { fetched.push({ url: req.url, headers: req.headers, body }); res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Fetched page</h1>'); });
+  });
+  await new Promise(r => fetchServer.listen(0, '127.0.0.1', r));
+  const fetchPort = fetchServer.address().port;
   
   // Create temp project
   const proj = tmp('leak');
   execSync('git init -q', { cwd: proj });
   
   // Launch app
-  const { app, page, userData } = await launch(proj, { live: true, env: { ELECTRON_ENABLE_LOGGING: '1' } });
+  const { app, page, userData } = await launch(proj, { live: true, env: { ELECTRON_ENABLE_LOGGING: '1', CORDOVAL_TEST_PRIVATE_FETCH: '1' } });
   const logs = { stdout: '', stderr: '' };
   const proc = app.process();
   proc.stdout.on('data', data => logs.stdout += data.toString());
@@ -181,6 +195,9 @@ async function runTest() {
   
   // Check that tool call ran
   checks['tool call ran'] = projectFiles['leak-check.txt'] !== undefined;
+  const fetchedText = JSON.stringify(fetched);
+  checks['web fetch ran'] = fetched.length === 1 && fetched[0].url === '/fetched?q=1';
+  checks['no key sent to fetched URL'] = !fetchedText.includes(CANARY) && !fetchedText.includes(CANARY2) && !fetched.some(f => f.headers.authorization || f.headers.cookie || f.headers['x-api-key'] || f.headers['x-cordoval-token']);
   checks['key reached only the chat endpoint host'] = requests.every(r => !r.headers.authorization || r.headers.authorization === 'Bearer ' + CANARY);
   
   // Check all surfaces for key leaks
@@ -208,6 +225,7 @@ async function runTest() {
   // Cleanup
   await app.close();
   server.close();
+  fetchServer.close();
   
   // Report results
   report('keys-never-leak', checks, { requests: requests.length, userDataFiles: Object.keys(userDataFiles).length });

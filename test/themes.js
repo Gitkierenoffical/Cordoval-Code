@@ -4,7 +4,7 @@ const path = require('path'); const fs = require('fs');
 const shots = path.join(__dirname, '..', 'screenshots');
 (async () => {
   const proj = '/tmp/cc-themes-' + Date.now(); fs.mkdirSync(proj); fs.writeFileSync(proj + '/a.js', 'const x = 1;\n');
-  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj] });
+  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj], env: { ...process.env, CORDOVAL_MOCK_PROVIDER: '1', CORDOVAL_USER_DATA: '/tmp/cc-ud-th-' + Date.now() } });
   const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await page.waitForTimeout(6000);
@@ -23,5 +23,5 @@ const shots = path.join(__dirname, '..', 'screenshots');
   r.bg = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg'));
   await page.evaluate(() => window.Themes.set('cordoval'));
   r.reset = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
-  console.log('[themes]', JSON.stringify(r)); await app.close();
+  await app.close(); require('./lib').report('themes', { themes: r.count >= 30, pickerListsAll: r.picker === r.count, themeApplies: !!r.bg && r.bg !== r.reset, resetWorks: !!r.reset }, r);
 })();

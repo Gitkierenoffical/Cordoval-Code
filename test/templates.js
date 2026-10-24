@@ -1,37 +1,32 @@
-// Creates projects from templates through the UI and waits for the agent to finish.
-// Usage: TEMPLATES=react-vite,electron,android-compose MODEL=openrouter/openai/gpt-5.4-mini xvfb-run -a node test/templates.js
-const { _electron: electron } = require('playwright-core');
-const path = require('path');
+// New project from a template: the folder is created with git, the template's brief is sent
+// to the agent and the turn finishes cleanly (scripted provider). TEMPLATES=a,b to pick.
+const L = require('./lib');
 const fs = require('fs');
-const shots = path.join(__dirname, '..', 'screenshots');
-const parent = process.env.PARENT || '/tmp/cc-templates';
-fs.mkdirSync(parent, { recursive: true });
-const ids = (process.env.TEMPLATES || 'react-vite').split(',');
-const log = (...a) => console.log('[tpl]', ...a);
+const path = require('path');
 (async () => {
+  const parent = L.tmp('templates');
+  const ids = (process.env.TEMPLATES || 'react-vite').split(',');
+  const r = {};
   for (const id of ids) {
     const name = id + '-' + Date.now().toString(36);
-    const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox'], env: { ...process.env, CORDOVAL_USER_DATA: '/tmp/cc-ud-tpl-' + id + '-' + Date.now() } });
-    const page = await app.firstWindow();
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
-    await page.waitForTimeout(6000);
+    const { app, page } = await L.launch(null);
     await page.click('#btn-welcome-template');
     await page.click(`.template-item[data-id="${id}"]`);
     await page.fill('#template-name', name);
     await page.evaluate((p) => { const i = document.getElementById('template-parent'); i.removeAttribute('readonly'); i.value = p; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); }, parent);
     await page.click('#btn-template-create');
-    const t0 = Date.now(); let done = false;
-    await page.waitForTimeout(8000);
-    while (Date.now() - t0 < (Number(process.env.TIMEOUT_MS) || 900000)) {
-      const b = await page.$('.permission-card button'); if (b) await b.click().catch(() => {});
-      if (!(await page.isVisible('#btn-stop'))) { done = true; break; }
-      await page.waitForTimeout(5000);
-    }
+    await page.waitForTimeout(2000);
+    const done = await L.waitIdle(page, 60000, true);
     const dir = path.join(parent, name);
-    const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
-    const err = await page.$$eval('.message-error, .error', es => es.map(e => e.textContent).join(' | ')).catch(() => '');
-    log(id, 'done=' + done, 'secs=' + Math.round((Date.now() - t0) / 1000), 'dir=' + dir, 'files=' + files.join(','), err ? 'errors=' + err.slice(0, 300) : '');
-    await page.screenshot({ path: path.join(shots, `20-template-${id}.png`) });
+    const msgs = await L.messages(page).catch(() => []);
+    const user = msgs.find(m => m.info.role === 'user');
+    const a = msgs.filter(m => m.info.role === 'assistant').pop();
+    r[id + 'Folder'] = fs.existsSync(path.join(dir, '.git'));
+    r[id + 'ProjectOpen'] = (await page.evaluate(() => window.CordovalApp.directory())) === dir;
+    r[id + 'BriefSent'] = !!user && user.parts.some(p => p.type === 'text' && p.text.length > 100);
+    r[id + 'Finished'] = done && !!a && !!a.info.time.completed && !a.info.error;
+    await L.shot(page, `20-template-${id}.png`);
     await app.close();
   }
+  L.report('templates', r);
 })().catch(e => { console.error(e); process.exit(1); });

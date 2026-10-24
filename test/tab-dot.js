@@ -3,7 +3,7 @@ const { _electron: electron } = require('playwright-core');
 const path = require('path'); const fs = require('fs');
 (async () => {
   const a = '/tmp/cc-dotA-' + Date.now(), b = '/tmp/cc-dotB-' + Date.now(); fs.mkdirSync(a); fs.mkdirSync(b);
-  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + a], env: { ...process.env, CORDOVAL_USER_DATA: '/tmp/cc-ud-dot-' + Date.now() } });
+  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + a], env: { ...process.env, CORDOVAL_MOCK_PROVIDER: '1', CORDOVAL_USER_DATA: '/tmp/cc-ud-dot-' + Date.now() } });
   const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await app.evaluate(({ dialog }, b) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [b] }); }, b);
@@ -15,5 +15,5 @@ const path = require('path'); const fs = require('fs');
   await page.screenshot({ path: path.join(__dirname, '..', 'screenshots', '52-tab-running-dot.png') });
   for (let i = 0; i < 60 && (await page.locator('.project-tab-dot.is-busy').count()); i++) await page.waitForTimeout(2000);
   r.clearedAfter = (await page.locator('.project-tab-dot.is-busy').count()) === 0;
-  console.log('[tab-dot]', JSON.stringify(r)); await app.close();
+  await app.close(); require('./lib').report('tab-dot', { dotOnBackgroundTab: r.dotOnA === 1, noDotOnActive: r.dotOnB === 0, dotClears: r.clearedAfter }, r);
 })();

@@ -2,7 +2,7 @@
 # Runs the headless suite against the Cordoval engine with the scripted test provider.
 # Usage: bash test/run-all.sh [test ...]   (needs xvfb-run). LIVE=1 adds the OpenRouter live check.
 cd "$(dirname "$0")/.."
-TESTS=${*:-"smoke e2e editor composer slash deny sudo-ask history review mentions customize keys-never-leak"}
+TESTS=${*:-"unit smoke e2e editor composer slash deny sudo-ask history review mentions customize agents themes templates tabs-keys tab-dot approvals keys-never-leak"}
 [ -n "$LIVE" ] && TESTS="$TESTS live-openrouter"
 fail=0
 for t in $TESTS; do
