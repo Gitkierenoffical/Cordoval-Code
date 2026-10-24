@@ -1,7 +1,7 @@
 {
   "name": "cordoval-code",
   "productName": "Cordoval Code",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Cordoval Code - privacy-first desktop AI coding app",
   "main": "src/main/main.js",
   "author": "Cordoval",
@@ -11,7 +11,8 @@
     "dist:linux": "electron-builder --linux AppImage --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "dist:msix": "bash scripts/build-msix.sh",
-    "test": "bash test/run-all.sh"
+    "test": "bash test/run-all.sh",
+    "deps:win": "npm install --os=win32 --cpu=x64"
   },
   "build": {
     "appId": "app.cordoval.code",
@@ -20,7 +21,8 @@
       "src/**",
       "assets/**",
       "LICENSE",
-      "NOTICE.md"
+      "NOTICE.md",
+      "!src/main/engine/mock-model.js"
     ],
     "asarUnpack": [
       "node_modules/typescript/**",
@@ -82,5 +84,8 @@
     "typescript": "^7.0.2",
     "typescript-language-server": "^6.0.2",
     "ws": "^8.22.0"
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty-win32-x64": "1.2.0-beta.15"
   }
 }
