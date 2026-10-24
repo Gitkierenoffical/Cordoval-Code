@@ -14,7 +14,7 @@ const tools = require('./tools');
 const { id, setSecrets, redact, redactDeep } = require('./util');
 const { AGENT_SYSTEM, INIT_PROMPT, SUMMARY_PROMPT } = require('../../templates/system');
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 class Engine {
   constructor(opts) {
@@ -24,8 +24,10 @@ class Engine {
     this.store = new Store(this.root);
     this.bus = new Bus();
     this.snapshots = new Snapshots(this.root);
-    this.permissions = new Permissions(this.bus);
-    this.providers = new Providers({ keys: opts.keys, mock: opts.mock });
+    this.permissions = new Permissions(this.bus, this.root);
+    this.mock = !!opts.mock;
+    this.privateFetch = this.mock || !!opts.privateFetch; // tests only; never in packaged builds
+    this.providers = new Providers({ keys: opts.keys, mock: this.mock });
     this.mcp = new Mcp();
     this.ptys = new Ptys();
     this.running = new Map();
@@ -38,7 +40,7 @@ class Engine {
   env() { const e = { ...process.env }; delete e.ELECTRON_RUN_AS_NODE; delete e.CORDOVAL_USER_DATA; return e; }
 
   // ---- sessions
-  listSessions(directory) { return this.store.list(directory); }
+  listSessions(directory, opts) { return this.store.list(directory).filter(s => (opts && opts.children) || !s.parentID); }
   requireSession(sid) { const rec = this.store.get(sid); if (!rec) throw Object.assign(new Error('Session not found.'), { status: 404 }); return rec; }
   createSession(directory, body) {
     const now = Date.now();
@@ -231,11 +233,15 @@ class Engine {
     const dir = rec.info.directory;
     const disabled = { ...(cfg.tools || {}), ...(agent.tools || {}) };
     const readOnly = agent.name === 'plan' || agent.name === 'explore' || (agent.permission && agent.permission.edit === 'deny' && agent.name !== 'build');
+    const isSub = !!rec.info.parentID;
     const set = {};
     const self = this;
+    // Sub-sessions ask in their parent's chat, where the user is looking.
+    const askSession = rec.info.parentID || rec.info.id;
     const makeCtx = (name, callID, signal) => ({
-      directory: dir, privateDir: this.privateDir, signal, env: this.env(),
-      ask: (key, value, title) => self.permissions.check({ session: rec.info.id, directory: dir, globalPerm: cfg.permission, agentPerm: agent.permission, key, value, title, messageID: assistant.info.id, callID, signal })
+      directory: dir, privateDir: this.privateDir, signal, env: this.env(), allowPrivateFetch: this.privateFetch,
+      task: isSub ? null : (input) => self.runTask(rec, input, signal || run.signal, run),
+      ask: (key, value, title) => self.permissions.check({ session: askSession, directory: dir, globalPerm: cfg.permission, agentPerm: agent.permission, key, value, title, messageID: assistant.info.id, callID, signal })
         .catch((e) => { if (e.rejected) run.rejected = true; throw e; }),
       title: (t) => { const p = run.toolPart(callID, name); p.state.title = String(t || ''); self.pubPart(rec, p); },
       meta: (m) => { const p = run.toolPart(callID, name); p.state.metadata = { ...(p.state.metadata || {}), ...m }; },
@@ -243,6 +249,8 @@ class Engine {
     for (const [name, def] of Object.entries(tools.defs)) {
       if (disabled[name] === false) continue;
       if (readOnly && def.mutates && name !== 'bash') continue;
+      if (isSub && !tools.SUBAGENT_TOOLS.includes(name)) continue;
+      if (def.subagent && agent.name === 'plan' && disabled.task !== true) { /* plan may research too */ }
       set[name] = tool({
         description: def.description,
         inputSchema: jsonSchema(def.schema),
@@ -250,7 +258,7 @@ class Engine {
         toModelOutput: ({ output }) => ({ type: 'text', value: String(output) }),
       });
     }
-    for (const t of this.mcp.tools()) {
+    for (const t of (isSub ? [] : this.mcp.tools())) {
       if (disabled[t.id] === false || disabled[t.server + '_*'] === false) continue;
       set[t.id] = tool({
         description: t.description,
@@ -263,7 +271,7 @@ class Engine {
   }
 
   newAssistant(rec, user, agent, model, extra) {
-    const msg = { info: { id: id('msg'), sessionID: rec.info.id, role: 'assistant', parentID: user.info.id, time: { created: Date.now() }, modelID: model.modelID, providerID: model.providerID, mode: agent.name, agent: agent.name, path: { cwd: rec.info.directory, root: rec.info.directory }, cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, ...(extra || {}) }, parts: [] };
+    const msg = { info: { id: id('msg'), sessionID: rec.info.id, role: 'assistant', parentID: user.info.id, time: { created: Date.now() }, modelID: model.modelID, providerID: model.providerID, mode: agent.name, agent: agent.name, path: { cwd: rec.info.directory, root: rec.info.directory }, cost: this.providers.price(model.providerID, model.modelID) ? 0 : null, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, ...(extra || {}) }, parts: [] };
     rec.messages.push(msg);
     this.pubMessage(rec, msg);
     return msg;
@@ -272,6 +280,7 @@ class Engine {
   async loop(rec, user, agent, model, controller, opts) {
     const { streamText, stepCountIs } = require('ai');
     const summary = !!(opts && opts.summary);
+    try { await this.providers.ensurePrices(model.providerID); } catch (e) {}
     const assistant = this.newAssistant(rec, user, agent, model, summary ? { summary: true, mode: 'compaction' } : null);
     const sid = rec.info.id;
     const addPart = (p) => { const part = { id: id('prt'), sessionID: sid, messageID: assistant.info.id, ...p }; assistant.parts.push(part); this.pubPart(rec, part); return part; };
@@ -340,7 +349,11 @@ class Engine {
             const u = ev.usage || {};
             const t = assistant.info.tokens;
             t.input += u.inputTokens || 0; t.output += u.outputTokens || 0; t.reasoning += u.reasoningTokens || 0; t.cache.read += u.cachedInputTokens || 0;
-            addPart({ type: 'step-finish', reason: ev.finishReason, tokens: { input: u.inputTokens || 0, output: u.outputTokens || 0 }, cost: 0 });
+            const stepCost = this.providers.cost(model.providerID, model.modelID, u);
+            if (stepCost == null) assistant.info.cost = null;
+            else if (assistant.info.cost != null) assistant.info.cost += stepCost;
+            addPart({ type: 'step-finish', reason: ev.finishReason, tokens: { input: u.inputTokens || 0, output: u.outputTokens || 0 }, cost: stepCost });
+            this.pubMessage(rec, assistant);
             break;
           }
           case 'error': err = ev.error; break;
@@ -371,6 +384,25 @@ class Engine {
       if (rec.meta.start) this.bus.publish(rec.info.directory, 'session.diff', { sessionID: sid, diff: await this.snapshots.diff(rec.info.directory, rec.meta.start, after) });
     } catch (e) {}
     this.pubSession(rec);
+  }
+
+  // Research subagent: a child session with read-only tools whose final text is the result.
+  async runTask(parentRec, input, signal, run) {
+    const dir = parentRec.info.directory;
+    const child = this.createSession(dir, { parentID: parentRec.info.id, title: 'Subagent: ' + String(input.description || 'research').slice(0, 60) });
+    const lastUser = [...parentRec.messages].reverse().find(m => m.info.role === 'user');
+    const model = (lastUser && lastUser.info.model) || await this.defaultModel();
+    const stop = () => this.abort(child.id);
+    if (signal) signal.addEventListener('abort', stop, { once: true });
+    try {
+      await this.prompt(child.id, { parts: [{ type: 'text', text: String(input.prompt || '') }], agent: 'explore', model }, { wait: true });
+    } finally { if (signal) signal.removeEventListener('abort', stop); }
+    const rec = this.store.get(child.id);
+    const last = rec.messages.filter(m => m.info.role === 'assistant').pop();
+    if (!last) throw new Error('The subagent did not answer.');
+    if (last.info.error && last.info.error.name !== 'MessageAbortedError') throw new Error('Subagent failed: ' + last.info.error.data.message);
+    const text = last.parts.filter(p => p.type === 'text').map(p => p.text).join('\n').trim();
+    return 'Subagent report (session ' + child.id + '):\n' + (text || '(no text)');
   }
 
   abort(sid) {

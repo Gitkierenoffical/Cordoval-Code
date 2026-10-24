@@ -4,6 +4,14 @@ const { Engine, VERSION } = require('./engine');
 const { createServer, newToken } = require('./server');
 
 let current = null;
+
+// The scripted test provider only exists in development checkouts. Packaged builds never
+// enable it, whatever the environment says, and the build leaves mock-model.js out.
+function mockAllowed(env, packaged) {
+  env = env || process.env;
+  if (packaged === undefined) { try { packaged = require('electron').app.isPackaged; } catch (e) { packaged = true; } }
+  return env.CORDOVAL_MOCK_PROVIDER === '1' && !packaged;
+}
 let starting = null;
 
 function start(opts) {
@@ -11,7 +19,7 @@ function start(opts) {
   if (starting) return starting;
   starting = new Promise((resolve, reject) => {
     try {
-      const engine = new Engine({ userData: opts.userData, keys: opts.keys, readConfig: opts.readConfig, mock: process.env.CORDOVAL_MOCK_PROVIDER === '1' });
+      const engine = new Engine({ userData: opts.userData, keys: opts.keys, readConfig: opts.readConfig, mock: mockAllowed(), privateFetch: mockAllowed({ CORDOVAL_MOCK_PROVIDER: process.env.CORDOVAL_TEST_PRIVATE_FETCH }) });
       const token = newToken();
       const server = createServer(engine, { token, version: VERSION });
       server.on('error', reject);
@@ -46,4 +54,4 @@ function token() { return current ? current.token : null; }
 function port() { return current ? current.info.port : null; }
 function instance() { return current ? current.engine : null; }
 
-module.exports = { start, stop, restart, setKeys, token, port, instance };
+module.exports = { mockAllowed, start, stop, restart, setKeys, token, port, instance };
