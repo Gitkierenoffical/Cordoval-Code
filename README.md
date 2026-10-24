@@ -4,69 +4,59 @@ Privacy-first desktop AI coding app from Cordoval. Bring your own key, no Cordov
 
 ## How it works
 - Electron shell (`src/main`) with a plain-JS UI (`src/renderer`).
-- The agent engine is the MIT-licensed OpenCode server, bundled as a local binary and started on
-  `127.0.0.1` on a random port. It provides sessions, streaming, tools (read/write/edit, shell with
-  approval, glob, grep, LSP), Build and Plan agents, snapshots for undo/revert, and PTY terminals.
-- Engine data lives in the app's own user-data folder, isolated from any other OpenCode install.
-  Sharing and auto-update are disabled.
+- The Cordoval engine (`src/main/engine/`) runs inside the app's main process and serves a local
+  HTTP + server-sent-events API on `127.0.0.1` (random port, per-run token). It provides sessions,
+  streaming chat with tool calls (Vercel AI SDK), tools (read, write, edit, list, glob, grep, shell
+  with approval), Build and Plan agents, custom agents and commands, MCP servers, snapshots for
+  undo/revert with diffs, file and git APIs, and PTY terminals (node-pty).
+- Sessions, messages and snapshots live in the app's own user-data folder (`engine/`).
+  There is no sharing, no telemetry and no auto-update.
 
 ## Features
 Folder picker and recent projects, sessions sidebar (multi-session), streaming chat with tool cards,
 permission prompts (allow once / always / deny), revert to any message and restore, Build/Plan mode,
-model picker per session, file tree and viewer, changes with unified diffs, grep search, LSP status,
-terminal panel (xterm.js), light lavender and dark themes, and project templates
-(React+Vite, Next.js, static site, Electron, Tauri, Android Kotlin Compose, React Native Expo,
-Flutter, Node API, FastAPI) with builder system prompts.
+model picker per session (models listed from each provider's API), file tree and viewer, changes with
+unified diffs, grep search, terminal panel (xterm.js), light lavender and dark themes, and project
+templates (React+Vite, Next.js, static site, Electron, Tauri, Android Kotlin Compose, React Native
+Expo, Flutter, Node API, FastAPI) with builder system prompts.
 
-### New in 0.2.0
-Built-in Monaco editor (tabs, save, syntax highlighting, inline diagnostics), file and image
-attachments (button, drag and drop, paste), slash commands (/new, /plan, /build, /undo, /redo,
-/model, /init, /compact, /clear, /theme, /terminal, /settings, /help, plus project commands),
-friendly model names with Free labels, keychain warning, and a lighter OpenCode-style layout.
-Tests: `test/smoke.js`, `test/e2e.js`, `test/editor.js`, `test/composer.js`, `test/templates.js`.
-
-- Customise panel (Ctrl+;): MCP servers (local and remote, enable/disable, connect, OAuth sign-in, tool lists), custom agents and slash commands (global config or project `.opencode/`), and per-tool permissions with shell command rules.
+- Built-in Monaco editor (tabs, save, syntax highlighting, inline diagnostics from local language servers).
+- File and image attachments (button, drag and drop, paste).
+- Slash commands: /new, /plan, /build, /undo, /redo, /model, /init, /compact, /clear, /theme, /terminal, /settings, /help, plus project commands.
+- Customise panel (Ctrl+;): MCP servers (local stdio and remote HTTP, enable/disable, connect, tool lists), custom agents and slash commands (global config or project `.cordoval/`; `.opencode/` folders are read too), and per-tool permissions with shell command rules. All changes apply live.
 - Custom primary agents appear next to Build and Plan.
-- Command palette (Ctrl+K or Ctrl+Shift+P), Go to file (Ctrl+P), OpenCode desktop keybinds and a shortcuts panel (Ctrl+/).
-- 37 colour themes: Cordoval lavender (default) plus OpenCode's desktop themes, each in light and dark.
-- Session history: search across sessions, rename, delete, export to Markdown, export and import JSON. Public share is always off.
-
-- @-mentions in the message box for files, folders and agents, with autocomplete. Mentioned files are sent as context.
-- Reasoning effort / model variant picker per session (Ctrl+Shift+D cycles).
+- Command palette (Ctrl+K or Ctrl+Shift+P), Go to file (Ctrl+P), and a shortcuts panel (Ctrl+/).
+- 37 colour themes: Cordoval lavender (default) plus more, each in light and dark.
+- Session history: search across sessions, rename, delete, export to Markdown, export and import JSON.
+- @-mentions for files, folders and agents, with autocomplete. Mentioned files are sent as context.
 - Per-line review comments on the Changes diff, sent to the agent in one message.
-- Project tabs in the title bar (Ctrl+T, Ctrl+W, Ctrl+Tab).
-- Rebindable keyboard shortcuts (Ctrl+/ then click a shortcut).
-- Customise changes to agents apply live; other changes wait until no session is running, then restart the engine, so nothing in flight is cut off.
-
-- Review comments survive restarts; background project tabs show a running dot.
-- MCP server add, edit, enable, disable and remove apply live through the engine's /mcp endpoints.
+- Project tabs in the title bar (Ctrl+T, Ctrl+W, Ctrl+Tab) and rebindable shortcuts.
 - First-run permissions ask before sudo, rm -rf, git push, npm publish and curl | sh.
-- Inter type, OpenCode's type scale, radii and shadows, and coloured file-type icons.
 
 ## Keys (bring your own)
-Settings > Providers: OpenRouter (key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
+Settings > Providers: OpenRouter (default; key or "Sign in with OpenRouter" PKCE), OpenAI, Anthropic,
 Google Gemini, Groq, xAI, plus any OpenAI-compatible endpoint, Ollama and LM Studio presets.
-Keys are encrypted with Electron safeStorage (Windows DPAPI, Linux Secret
-Service/kwallet) and handed to the local engine as environment variables only. Free OpenCode Zen
-models (for example `opencode/mimo-v2.6-flash-free`) work without a key.
+Keys are encrypted with Electron safeStorage (Windows DPAPI, Linux Secret Service/kwallet). The
+engine adds a key only as a request header inside its HTTP client, and only for that provider's host.
+Keys never go into prompts, messages, tool output, logs, session files or the window; the engine
+also scrubs any known key from everything it stores or streams. `test/keys-never-leak.js` checks this.
 
 ## Develop
     npm install
-    ./scripts/fetch-engine.sh      # downloads engine binaries into vendor/
     npm start
-    xvfb-run -a node test/smoke.js # UI smoke test + screenshots
+    npm test                       # headless suite (xvfb-run) with the scripted test provider
+    LIVE=1 OPENROUTER_TEST_KEY=... npm test   # adds one live OpenRouter run
 
 ## Build
     npm run dist:linux   # dist/Cordoval Code-<ver>.AppImage
     npm run dist:win     # dist/Cordoval Code Setup <ver>.exe (NSIS)
-Cross-building the Windows installer on Linux needs wine64 + wine32 (i386 multiarch) and a
-clean prefix, e.g. `WINEPREFIX=~/.wine-cordoval wineboot -i` first.
-On Windows natively: install Node 20, Git, then `npm install`, `bash scripts/fetch-engine.sh`
-(Git Bash) and `npm run dist:win`. Code signing is not configured yet.
+Cross-building the Windows installer on Linux needs wine. On Windows natively: install Node 20 and
+Git, then `npm install` and `npm run dist:win`. Code signing is not configured yet.
 
 ## Licence
-MIT. Bundles OpenCode (MIT) - see NOTICE.md.
+MIT. Some UI assets are MIT-licensed third-party work - see NOTICE.md.
 
 ## Tests
-
-Under `test/` (Playwright + Xvfb): smoke, e2e, slash, templates, editor, lsp, lsp-native, vision, fallback, updater, themes, history, customize, mcp-auth, agents, deny, live-apply, mentions, variant, review, tabs-keys, tab-dot, live-mcp, sudo-ask. Set `CORDOVAL_USER_DATA` to run against a throwaway profile.
+Under `test/` (Playwright + Xvfb, `CORDOVAL_MOCK_PROVIDER=1` scripted model): smoke, e2e, editor,
+composer, slash, deny, sudo-ask, history, review, mentions, customize, keys-never-leak, and
+live-openrouter (needs a key). Run them all with `npm test`.

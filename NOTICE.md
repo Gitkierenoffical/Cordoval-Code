@@ -1,7 +1,9 @@
 # Third-party notices
 
-Cordoval Code bundles the OpenCode engine (https://github.com/anomalyco/opencode, formerly sst/opencode),
-used unmodified as a local server binary.
+Cordoval Code runs its own engine and does not bundle the OpenCode engine. Some user-interface
+assets are derived from OpenCode (https://github.com/anomalyco/opencode, formerly sst/opencode):
+the colour themes, the file-type icons and the choice of the Inter font, listed below. They are
+used under the following licence:
 
 MIT License
 
@@ -25,7 +27,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Also bundled: Electron (MIT), xterm.js (MIT), marked (MIT), jsdiff (BSD-3-Clause).
+Also bundled: Electron (MIT), xterm.js (MIT), marked (MIT), jsdiff (BSD-3-Clause), Monaco Editor (MIT),
+Vercel AI SDK (Apache-2.0), Model Context Protocol SDK (MIT), node-pty (MIT), ws (MIT).
 
 - Colour themes in src/renderer/themes-data.js are derived from OpenCode's desktop themes (packages/ui/src/theme/themes), MIT licence, Copyright (c) 2025 opencode.
 - File icons (assets/file-icons.svg, src/renderer/file-icons.js) and the Inter font (assets/fonts/Inter.ttf, SIL Open Font Licence 1.1) come from OpenCode's packages/ui (MIT). Design tokens (type scale, radii, shadows) follow packages/ui/src/styles/theme.css.
