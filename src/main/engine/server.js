@@ -36,7 +36,7 @@ function createServer(engine, opts) {
   const dirOf = (q) => path.resolve(q.get('directory') || process.cwd());
 
   // sessions
-  route('GET', '/session', (q) => engine.listSessions(q.get('directory')));
+  route('GET', '/session', (q) => engine.listSessions(q.get('directory'), { children: !!q.get('children') }));
   route('POST', '/session', (q, b) => engine.createSession(dirOf(q), b));
   route('GET', '/session/status', (q) => engine.status(q.get('directory')));
   route('GET', '/session/:id', (q, b, p) => engine.requireSession(p.id).info);
@@ -53,7 +53,9 @@ function createServer(engine, opts) {
   route('POST', '/session/:id/unrevert', (q, b, p) => engine.unrevert(p.id));
   route('GET', '/session/:id/diff', (q, b, p) => engine.sessionDiff(p.id));
   route('POST', '/permission/:id/reply', (q, b, p) => { if (!engine.permissions.reply(p.id, b.reply || b.response)) throw Object.assign(new Error('No such permission request.'), { status: 404 }); return true; });
-  route('GET', '/permission', () => engine.permissions.list());
+  route('GET', '/permission', (q) => engine.permissions.list(q.get('directory')));
+  route('GET', '/permission/rules', (q) => engine.permissions.listRules(q.get('all') ? '' : q.get('directory')));
+  route('DELETE', '/permission/rules/:id', (q, b, p) => engine.permissions.revoke(p.id));
 
   // config, providers, agents, commands
   route('GET', '/global/health', () => ({ healthy: true, version: opts.version }));
