@@ -152,7 +152,9 @@
         <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M2.5 3A1.5 1.5 0 0 0 1 4.5v7A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 13.5 3h-11Zm0 1.5h11v7h-11v-7Zm1.9 1.9a.75.75 0 0 1 0 1.06L3.56 8.3l.84.84a.75.75 0 1 1-1.06 1.06l-1.37-1.37a.75.75 0 0 1 0-1.06L3.34 6.4a.75.75 0 0 1 1.06 0Zm4.6 0a.75.75 0 0 1 0 1.06l-.84.84.84.84a.75.75 0 1 1-1.06 1.06L6.33 9.1a.75.75 0 0 1 0-1.06l1.37-1.37a.75.75 0 0 1 1.06 0Z"/></svg>
         Terminal
       </button>
+      <button type="button" class="statusbar-item statusbar-approvals" id="status-approvals" hidden title="Show the approval waiting for you">Pending approvals: 0</button>
       <div class="statusbar-spacer"></div>
+      <span class="statusbar-item statusbar-muted" id="status-cost" hidden></span>
       <span class="statusbar-item statusbar-muted" id="status-engine">Engine starting...</span>
     </footer>
   </div>
@@ -187,6 +189,7 @@
         <button type="button" class="modal-tab is-active" data-stab="providers">Providers</button>
         <button type="button" class="modal-tab" data-stab="custom">Custom endpoints</button>
         <button type="button" class="modal-tab" data-stab="appearance">Appearance</button>
+        <button type="button" class="modal-tab" data-stab="permissions">Permissions</button>
         <button type="button" class="modal-tab" data-stab="privacy">Privacy</button>
       </div>
       <div class="modal-body">
@@ -204,6 +207,11 @@
             </div>
           </div>
           <div id="theme-family-picker"></div>
+        </section>
+        <section class="modal-view" data-stab="permissions" id="settings-permissions">
+          <h3>Always-allow rules</h3>
+          <p class="muted">Cordoval Code asks before running shell commands, fetching websites and touching files outside the project folder. These are the answers you chose to remember. Revoke one and it asks again next time.</p>
+          <div id="permission-rules"></div>
         </section>
         <section class="modal-view" data-stab="privacy" id="settings-privacy">
           <p class="privacy-text">No Cordoval servers. No telemetry. Keys stay on this device.</p>

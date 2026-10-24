@@ -2450,3 +2450,20 @@ code, pre, kbd, .diff-body, .diff-line, .terminal-host, .mention-value { font-fa
 .file-icon { width: 16px; height: 16px; flex: none; }
 .sidebar-label { font-weight: 500 !important; text-transform: none !important; letter-spacing: 0 !important; font-size: 12px !important; }
 .message-role, .role-label { font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+.permission-card.is-risky { border-color: var(--danger, #c4473a); }
+.permission-value {
+  margin: 4px 0 8px; padding: 6px 8px; border-radius: 6px; background: var(--bg, rgba(0,0,0,0.04));
+  border: 1px solid var(--border); font-family: var(--mono, ui-monospace, monospace); font-size: 12.5px;
+  white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow: auto;
+}
+.permission-risk { color: var(--danger, #c4473a); font-size: 13px; margin-bottom: 8px; font-weight: 550; }
+.permission-hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.statusbar-approvals { color: var(--danger, #c4473a); font-weight: 600; }
+.message-cost { color: var(--muted); font-size: 11.5px; margin: 4px 0 0 2px; }
+.perm-rules { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.perm-rule { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.perm-rule-text { min-width: 0; }
+.perm-rule-kind { font-weight: 600; font-size: 13px; }
+.perm-rule-pattern { display: block; font-size: 12.5px; word-break: break-all; margin: 2px 0; }
+.perm-rule-dir { font-size: 11.5px; word-break: break-all; }

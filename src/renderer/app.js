@@ -683,6 +683,7 @@
     for (const message of state.messages) {
       els.messages.appendChild(renderMessage(message));
     }
+    updateCostStatus();
     els.messages.scrollTop = els.messages.scrollHeight;
   }
 
@@ -714,6 +715,12 @@
       bubble.appendChild(el('div', 'message-error', message.error));
     }
     wrap.appendChild(bubble);
+    const tk = message.info.tokens;
+    if (message.info.role === 'assistant' && tk && (tk.input || tk.output)) {
+      const meta = el('div', 'message-cost', 'Cost: ' + formatCost(message.info.cost) + ' - ' + (tk.input || 0) + ' in, ' + (tk.output || 0) + ' out tokens');
+      meta.title = message.info.cost == null ? 'The price of this model is not known, so the cost cannot be worked out.' : 'Worked out from token usage and the model price.';
+      wrap.appendChild(meta);
+    }
     return wrap;
   }
 
@@ -727,6 +734,7 @@
     const newNode = renderMessage(message);
     if (oldNode) els.messages.replaceChild(newNode, oldNode);
     else renderMessages();
+    updateCostStatus();
     els.messages.scrollTop = els.messages.scrollHeight;
   }
 
@@ -803,14 +811,63 @@
     }
   }
 
+  const PERMISSION_LABELS = { bash: 'Run a shell command', edit: 'Change a file', webfetch: 'Fetch a web page', external_directory: 'Use a path outside the project' };
+
+  // Statusbar indicator for approvals waiting in any session of this project.
+  function updatePendingApprovals() {
+    const node = $('status-approvals');
+    if (!node) return;
+    let count = 0, first = null;
+    for (const sid of Object.keys(state.permissions)) {
+      const n = (state.permissions[sid] || []).length;
+      if (n && !first) first = sid;
+      count += n;
+    }
+    node.hidden = count === 0;
+    node.textContent = 'Pending approvals: ' + count;
+    node.dataset.session = first || '';
+  }
+
+  function sessionCost() {
+    let total = 0, unknown = false, any = false;
+    for (const m of state.messages) {
+      if (m.info.role !== 'assistant' || !m.info.tokens) continue;
+      any = true;
+      if (m.info.cost == null) unknown = true; else total += Number(m.info.cost) || 0;
+    }
+    return { any, unknown, total };
+  }
+  function formatCost(v) {
+    if (v == null) return 'unknown';
+    if (v === 0) return '$0.00';
+    if (v < 0.0001) return '$' + v.toPrecision(2);
+    return v < 0.01 ? '$' + v.toFixed(4) : '$' + v.toFixed(2);
+  }
+  function updateCostStatus() {
+    const node = $('status-cost');
+    if (!node) return;
+    const c = sessionCost();
+    node.hidden = !c.any;
+    node.textContent = 'Session cost: ' + (c.unknown ? (c.total > 0 ? 'at least ' + formatCost(c.total) + ' (some prices unknown)' : 'unknown') : formatCost(c.total));
+  }
+
   function renderPermissions() {
+    updatePendingApprovals();
     clear(els.permissionHost);
     const list = state.permissions[state.sessionId] || [];
     for (const item of list) {
       const card = el('div', 'permission-card');
       card.dataset.permissionId = item.id;
+      const meta = item.metadata || {};
+      if (meta.risky) card.classList.add('is-risky');
       card.appendChild(el('div', 'permission-title', permissionTitle(item)));
-      card.appendChild(el('div', 'permission-detail', permissionDetail(item)));
+      const value = meta.value != null ? String(meta.value) : ((item.patterns || [])[0] || '');
+      if (value) card.appendChild(el('pre', 'permission-value', value));
+      if (meta.title && meta.title !== value) card.appendChild(el('div', 'permission-detail', String(meta.title)));
+      if (meta.risk) card.appendChild(el('div', 'permission-risk', 'Risk: ' + meta.risk));
+      if (item.permission === 'webfetch' || item.permission === 'external_directory' || item.permission === 'bash') {
+        card.appendChild(el('div', 'permission-hint', 'Always allow applies to ' + (item.permission === 'webfetch' ? 'this website' : item.permission === 'bash' ? 'this exact command' : 'this exact path') + ' in this project. Revoke it in Settings > Permissions.'));
+      }
       const actions = el('div', 'permission-actions');
       actions.appendChild(permissionButton(item.id, 'once', 'Allow once', 'btn-primary'));
       actions.appendChild(permissionButton(item.id, 'always', 'Always allow', 'btn-secondary'));
@@ -822,7 +879,7 @@
 
   function permissionTitle(item) {
     const permission = item.permission ? String(item.permission) : 'Permission';
-    return permission.replace(/[._-]+/g, ' ');
+    return PERMISSION_LABELS[permission] || permission.replace(/[._-]+/g, ' ');
   }
 
   function permissionDetail(item) {
@@ -1369,6 +1426,9 @@
     state.messages = [];
     state.sessionId = null;
     state.permissions = {};
+    window.Api.request('/permission').then(function (list) {
+      for (const p of list || []) handleEvent({ type: 'permission.asked', properties: p });
+    }).catch(function () {});
     state.diffs = {};
     state.vcsMissing = false;
     state.commandsLoaded = false;
@@ -1427,6 +1487,7 @@
       case 'session.updated': {
         const info = props.info || props;
         if (!info || !info.id) return;
+        if (info.parentID) return; // subagent sub-sessions stay out of the list
         const existing = state.sessions.find(function (s) { return s.id === info.id; });
         if (existing) {
           Object.assign(existing, info);
@@ -1546,7 +1607,7 @@
         if (index >= 0) list[index] = item;
         else list.push(item);
         state.permissions[props.sessionID] = list;
-        if (props.sessionID === state.sessionId) renderPermissions();
+        if (props.sessionID === state.sessionId) renderPermissions(); else updatePendingApprovals();
         return;
       }
       case 'permission.replied': {
@@ -1554,7 +1615,7 @@
         const sessionID = props.sessionID || state.sessionId;
         const list = state.permissions[sessionID] || [];
         state.permissions[sessionID] = list.filter(function (p) { return p.id !== id; });
-        if (sessionID === state.sessionId) renderPermissions();
+        if (sessionID === state.sessionId) renderPermissions(); else updatePendingApprovals();
         return;
       }
       default:
@@ -2141,6 +2202,36 @@
     for (const view of views) {
       view.classList.toggle('is-active', view.dataset.stab === name);
     }
+  }
+
+  // Settings > Permissions: the saved "Always allow" answers, each revocable.
+  async function renderPermissionRules() {
+    const host = $('permission-rules');
+    if (!host) return;
+    clear(host);
+    let rules = [];
+    try { rules = await window.Api.request('/permission/rules?all=1'); } catch (e) { host.appendChild(el('p', 'muted', errorMessage(e))); return; }
+    if (!rules.length) { host.appendChild(el('p', 'muted perm-rules-empty', 'No always-allow rules yet. When you choose Always allow on an approval, it is listed here.')); return; }
+    const table = el('div', 'perm-rules');
+    for (const r of rules) {
+      const row = el('div', 'perm-rule');
+      row.dataset.ruleId = r.id;
+      const text = el('div', 'perm-rule-text');
+      text.appendChild(el('div', 'perm-rule-kind', PERMISSION_LABELS[r.key] || r.key));
+      text.appendChild(el('code', 'perm-rule-pattern', r.pattern));
+      text.appendChild(el('div', 'perm-rule-dir muted', r.directory));
+      row.appendChild(text);
+      const btn = el('button', 'btn btn-sm btn-danger', 'Revoke');
+      btn.type = 'button';
+      btn.addEventListener('click', function () {
+        window.Api.request('/permission/rules/' + encodeURIComponent(r.id), { method: 'DELETE' })
+          .then(function () { toast('Rule revoked', 'info'); renderPermissionRules(); })
+          .catch(function (err) { toast(errorMessage(err), 'error'); });
+      });
+      row.appendChild(btn);
+      table.appendChild(row);
+    }
+    host.appendChild(table);
   }
 
   async function openTemplates() {
@@ -2779,10 +2870,18 @@
       });
     }
 
+    const approvals = $('status-approvals');
+    if (approvals) approvals.addEventListener('click', function () {
+      const sid = approvals.dataset.session;
+      if (sid && sid !== state.sessionId) selectSession(sid).catch(function () {});
+      else if (els.permissionHost.firstChild) els.permissionHost.firstChild.scrollIntoView({ block: 'nearest' });
+    });
+
     const settingsTabs = document.querySelectorAll('.modal-tab');
     for (const tab of settingsTabs) {
       tab.addEventListener('click', function () {
         switchSettingsTab(tab.dataset.stab);
+        if (tab.dataset.stab === 'permissions') renderPermissionRules();
       });
     }
 
