@@ -1,21 +1,18 @@
 // Palette, shortcuts and session history (search, rename, export md/json, delete, import).
-const { _electron: electron } = require('playwright-core');
+const L = require('./lib');
 const path = require('path'); const fs = require('fs');
-const shots = path.join(__dirname, '..', 'screenshots');
-const MODEL = process.env.MODEL || 'opencode/glm-5.3-flash-free';
+const shots = L.SHOTS;
+const MODEL = process.env.MODEL || 'mock/scripted';
 (async () => {
-  const proj = '/tmp/cc-hist-' + Date.now(); fs.mkdirSync(proj); fs.writeFileSync(proj + '/notes.txt', 'hello\n');
-  const out = '/tmp/cc-hist-out-' + Date.now(); fs.mkdirSync(out);
-  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj] });
-  const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.message));
+  const proj = L.tmp('hist'); fs.writeFileSync(proj + '/notes.txt', 'hello\n');
+  const out = L.tmp('hist-out');
+  const { app, page } = await L.launch(proj);
   page.on('dialog', d => d.accept());
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
   await app.evaluate(({ dialog }, out) => {
     let n = 0;
     dialog.showSaveDialog = async (w, o) => ({ canceled: false, filePath: out + '/' + (++n) + '-' + String((o || w).defaultPath).split('/').pop() });
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [global.__importFile] });
   }, out);
-  await page.waitForTimeout(6000);
   const r = {};
   // palette
   await page.keyboard.press('Control+k'); await page.waitForTimeout(300);
@@ -32,12 +29,13 @@ const MODEL = process.env.MODEL || 'opencode/glm-5.3-flash-free';
   await page.click('#btn-shortcuts-close');
   const before = await page.locator('.session-item').count();
   await page.keyboard.press('Control+Shift+S'); await page.waitForTimeout(1500);
-  r.newSessionShortcut = (await page.locator('.session-item').count()) === before + 1;
-  // a real exchange with a free model
+  r.sessCounts = [before, await page.locator('.session-item').count()];
+  r.newSessionShortcut = r.sessCounts[1] === before + 1;
+  // an exchange with the scripted test model
   await page.selectOption('#model-picker', MODEL).catch(e => r.modelErr = e.message);
   await page.fill('#composer-input', 'Reply with exactly the single word PINEAPPLE and nothing else. Do not use tools.');
   await page.keyboard.press('Enter');
-  for (let i = 0; i < 90; i++) { await page.waitForTimeout(2000); if ((await page.textContent('#messages').catch(() => '')).includes('PINEAPPLE') && !(await page.isVisible('#btn-stop'))) break; }
+  for (let i = 0; i < 60; i++) { await page.waitForTimeout(1000); if ((await page.textContent('#messages').catch(() => '')).includes('PINEAPPLE') && !(await page.isVisible('#btn-stop'))) break; }
   const sid = await page.evaluate(() => window.CordovalApp.sessionId());
   // rename via API hook so search can find title too
   await page.evaluate(async (sid) => { await window.Api.renameSession(sid, 'Fruit test'); await window.CordovalApp.refreshSessions(); }, sid);
@@ -63,5 +61,10 @@ const MODEL = process.env.MODEL || 'opencode/glm-5.3-flash-free';
   await page.waitForTimeout(1500);
   r.importedHasText = (await page.textContent('#messages')).includes('PINEAPPLE');
   await page.screenshot({ path: path.join(shots, '37-session-imported.png') });
-  console.log('[history]', JSON.stringify(r)); await app.close();
+  await app.close();
+  const checks = {};
+  for (const k of ['paletteOpen', 'terminalAfterPalette', 'paletteAlt', 'shortcutsHelp', 'newSessionShortcut', 'openedFromSearch', 'md', 'json', 'deleted', 'imported', 'importedHasText']) checks[k] = !!r[k];
+  checks.searchHits = r.searchHits > 0;
+  if (process.env.DEBUG) console.log(r);
+  L.report('history', checks, { modelErr: r.modelErr });
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

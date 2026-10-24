@@ -1,5 +1,5 @@
 // Creates projects from templates through the UI and waits for the agent to finish.
-// Usage: TEMPLATES=react-vite,electron,android-compose MODEL=opencode/mimo-v2.6-flash-free xvfb-run -a node test/templates.js
+// Usage: TEMPLATES=react-vite,electron,android-compose MODEL=openrouter/openai/gpt-5.4-mini xvfb-run -a node test/templates.js
 const { _electron: electron } = require('playwright-core');
 const path = require('path');
 const fs = require('fs');

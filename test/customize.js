@@ -1,21 +1,19 @@
 // Customise panel end to end: MCP (local + remote, enable/disable, tools, remove),
-// agents and commands (global config and project .opencode files), permissions.
-const { _electron: electron } = require('playwright-core');
+// agents and commands (global config and project .cordoval files), permissions.
+const L = require('./lib');
 const path = require('path'); const fs = require('fs');
-const shots = path.join(__dirname, '..', 'screenshots');
+const shots = L.SHOTS;
+const ECHO = 'node ' + path.join(__dirname, 'fixtures', 'mcp-echo.js');
 (async () => {
-  const proj = '/tmp/cc-cust-' + Date.now(); fs.mkdirSync(proj);
-  const app = await electron.launch({ executablePath: require('electron'), args: [path.join(__dirname, '..'), '--no-sandbox', '--project=' + proj], env: { ...process.env, CORDOVAL_USER_DATA: '/tmp/cc-ud-' + Date.now() } });
-  const page = await app.firstWindow(); page.on('pageerror', e => console.log('pageerror', e.stack));
+  const proj = L.tmp('cust');
+  const { app, page } = await L.launch(proj);
   page.on('dialog', d => d.accept());
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
-  await page.waitForTimeout(6000);
   const cfgPath = await page.evaluate(() => window.cordoval.engineConfigPath());
   const cfg = () => JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   const B = '#customize-backdrop ';
   const btn = (t) => page.locator(B + 'button', { hasText: new RegExp('^\\s*' + t + '\\s*$') });
   const field = (f) => page.locator(B + `[data-field^="${f}"]`).last();
-  const saveForm = async () => { await page.locator(B + 'button', { hasText: /^\s*(Save|Create)\s*$/ }).last().click(); await page.waitForTimeout(6000); };
+  const saveForm = async () => { await page.locator(B + 'button', { hasText: /^\s*(Save|Create)\s*$/ }).last().click(); await page.waitForTimeout(2500); };
   const api = (p) => page.evaluate((p) => window.Api.request(p), p);
   const r = {};
   // --- MCP local
@@ -23,7 +21,7 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await btn('Add server').click(); await page.waitForTimeout(300);
   await page.screenshot({ path: '/tmp/cust-form.png' });
   await field('Name').fill('echo');
-  await field('Command').fill('node /tmp/mcp-echo.js');
+  await field('Command').fill(ECHO);
   await saveForm();
   r.cfgLocal = JSON.stringify(cfg().mcp && cfg().mcp.echo);
   const st = await api('/mcp'); r.status = st.echo && st.echo.status;
@@ -38,13 +36,13 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(shots, '38-mcp-servers.png') });
   // disable echo
-  await page.locator(B + 'button', { hasText: /^Disable$/ }).first().click(); await page.waitForTimeout(6000);
+  await page.locator(B + 'button', { hasText: /^Disable$/ }).first().click(); await page.waitForTimeout(2500);
   r.disabledCfg = cfg().mcp.echo.enabled === false; r.disabledStatus = ((await api('/mcp')).echo || {}).status;
-  await page.locator(B + 'button', { hasText: /^Enable$/ }).first().click(); await page.waitForTimeout(6000);
+  await page.locator(B + 'button', { hasText: /^Enable$/ }).first().click(); await page.waitForTimeout(2500);
   r.reenabled = ((await api('/mcp')).echo || {}).status;
   // remove remote: last Remove button belongs to remote-test (alphabetical or insertion)
   const rows = await page.locator(B + 'button', { hasText: /^Remove$/ }).count();
-  await page.locator(B + 'button', { hasText: /^Remove$/ }).nth(rows - 1).click(); await page.waitForTimeout(6000);
+  await page.locator(B + 'button', { hasText: /^Remove$/ }).nth(rows - 1).click(); await page.waitForTimeout(2500);
   r.afterRemove = Object.keys(cfg().mcp || {});
   // --- Agents
   await page.click(B + '[data-tab="agents"], ' + B + 'button:has-text("Agents")'); await page.waitForTimeout(800);
@@ -52,7 +50,7 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await field('Name').fill('reviewer');
   await field('Scope').selectOption('global');
   await field('Description').fill('Reviews code without editing');
-  await field('Model').fill('opencode/glm-5.3-flash-free').catch(async () => field('Model').selectOption('opencode/glm-5.3-flash-free'));
+  await field('Model').fill('mock/scripted').catch(async () => field('Model').selectOption('mock/scripted'));
   await field('Prompt').fill('You review code and never edit files.');
   await field('Permission for edit').selectOption('deny').catch(e => r.permEditErr = e.message.slice(0, 80));
   await page.screenshot({ path: path.join(shots, '39-agent-editor.png') });
@@ -65,7 +63,7 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await field('Description').fill('Writes docs');
   await field('Prompt').fill('You write documentation.');
   await saveForm();
-  const agentFile = [proj + '/.opencode/agent/docs.md', proj + '/.opencode/agents/docs.md'].find(f => fs.existsSync(f));
+  const agentFile = [proj + '/.cordoval/agent/docs.md', proj + '/.cordoval/agents/docs.md'].find(f => fs.existsSync(f));
   r.projectAgentFile = agentFile ? fs.readFileSync(agentFile, 'utf8').slice(0, 160) : null;
   r.projectAgentLive = (await api('/agent')).some(a => a.name === 'docs');
   // --- Commands
@@ -77,7 +75,7 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await btn('New command').click(); await page.waitForTimeout(300);
   await field('Name').fill('hi'); await field('Scope').selectOption('project'); await field('Template').fill('Say hi to $1');
   await saveForm();
-  r.cmdFile = [proj + '/.opencode/command/hi.md', proj + '/.opencode/commands/hi.md'].some(f => fs.existsSync(f));
+  r.cmdFile = [proj + '/.cordoval/command/hi.md', proj + '/.cordoval/commands/hi.md'].some(f => fs.existsSync(f));
   const cmds = (await api('/command')).map(c => c.name); r.cmdLive = cmds.includes('shout') && cmds.includes('hi');
   await page.screenshot({ path: path.join(shots, '40-commands.png') });
   // --- Permissions
@@ -90,11 +88,18 @@ const shots = path.join(__dirname, '..', 'screenshots');
   await ruleInputs.last().fill('git status');
   const allSel = page.locator(B + 'select'); await allSel.last().selectOption({ label: 'Allow' }).catch(async () => allSel.last().selectOption('allow'));
   await page.screenshot({ path: path.join(shots, '41-permissions.png') });
-  await btn('Save permissions').click(); await page.waitForTimeout(6000);
+  await btn('Save permissions').click(); await page.waitForTimeout(2500);
   r.perm = JSON.stringify(cfg().permission);
   // agents list screenshot
   await page.click(B + 'button:has-text("Agents")'); await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(shots, '42-agents.png') });
-  r.share = cfg().share;
-  console.log('[customize]', JSON.stringify(r, null, 1)); await app.close();
+  await app.close();
+  const perm = JSON.parse(r.perm || '{}');
+  L.report('customize', {
+    mcpLocalSaved: /mcp-echo\.js/.test(r.cfgLocal || ''), mcpConnected: r.status === 'connected', mcpToolListed: r.mcpTool,
+    mcpRemoteSaved: r.remoteSaved, mcpRemoteFailed: r.remoteChip, mcpDisable: r.disabledCfg && r.disabledStatus === 'disabled', mcpReenable: r.reenabled === 'connected',
+    mcpRemoved: JSON.stringify(r.afterRemove) === '["echo"]', agentGlobal: /review code/.test(r.agentCfg || '') && r.agentLive, agentProject: !!r.projectAgentFile && r.projectAgentLive,
+    commandGlobal: /capitals/.test(r.cmdCfg || ''), commandProject: r.cmdFile, commandsLive: r.cmdLive,
+    permissionsSaved: !!perm.bash && JSON.stringify(perm).includes('git status'),
+  }, r);
 })().catch(e => { console.error('FAIL', e.message); process.exit(1); });
