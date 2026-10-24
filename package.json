@@ -53,7 +53,9 @@
       "languages": [
         "en-GB"
       ]
-    }
+    },
+    "publish": [],
+    "generateUpdatesFilesForAllChannels": false
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",

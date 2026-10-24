@@ -1,12 +1,15 @@
 // Smoke test: launch, chat with a tool call, changes diff, files and terminal, settings, dark theme.
+// Set EXE to a packaged binary (for example the AppImage) to smoke-test a build.
 const L = require('./lib');
 const fs = require('fs');
 const path = require('path');
 (async () => {
   const proj = L.tmp('smoke');
   require('child_process').spawnSync('git', ['init', '-q'], { cwd: proj });
-  const { app, page } = await L.launch(proj);
+  const exe = process.env.EXE;
+  const { app, page } = await L.launch(proj, exe ? { executablePath: exe, env: { APPIMAGE_EXTRACT_AND_RUN: '1' } } : {});
   const r = {};
+  if (exe) r.version = (await page.evaluate(() => window.cordoval.appVersion())) === require('../package.json').version;
   await L.shot(page, '01-start.png');
   r.engineUp = !!(await page.evaluate(() => window.Api.engineUrl()));
   await L.send(page, 'Create a file named index.html containing Hello from Cordoval Code.');
@@ -32,5 +35,5 @@ const path = require('path');
   await L.shot(page, '07-dark.png');
   await page.click('#btn-theme');
   await app.close();
-  L.report('smoke', r);
+  L.report(exe ? 'smoke (packaged)' : 'smoke', r);
 })().catch(e => { console.error(e); process.exit(1); });

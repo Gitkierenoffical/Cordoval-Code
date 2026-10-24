@@ -22,6 +22,7 @@ async function launch(proj, opts) {
   const page = await app.firstWindow();
   page.on('pageerror', e => console.log('pageerror', e.message));
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900)).catch(() => {});
+  await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
   await page.waitForFunction(() => window.Api && window.Api.engineUrl() && window.CordovalApp && window.CordovalApp.sessionId && window.CordovalApp.sessionId(), null, { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(opts.settle || 1500);
   return { app, page, userData };
