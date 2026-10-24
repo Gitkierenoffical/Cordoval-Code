@@ -1902,7 +1902,7 @@ button.statusbar-item:hover {
 [data-theme="dark"] .keychain-warning { background: #3A2E10; color: #F5DFA8; border-color: #8A6A20; }
 .keychain-warning-title { font-weight: 650; margin-bottom: 4px; }
 
-/* Polish v0.2: OpenCode desktop look */
+/* Polish v0.2: desktop look */
 
 .app {
   grid-template-rows: 44px 1fr auto;
@@ -2385,7 +2385,7 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .shortcut-row.is-custom kbd { border-color: var(--accent); color: var(--accent); }
 .shortcut-none { font-size: 11px; color: var(--faint); }
 
-/* ---------- Round 6 visual pass: closer to OpenCode desktop ----------
+/* ---------- Round 6 visual pass: desktop polish ----------
    Flatter surfaces, quieter chrome, compact type, controls as text-like pills.
    Cordoval accent and lavender theme stay. */
 .app { grid-template-rows: 40px 1fr auto !important; }
@@ -2421,9 +2421,9 @@ kbd { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; paddin
 .project-tab-dot.is-busy { background: var(--accent); box-shadow: 0 0 0 0 var(--accent); animation: tab-pulse 1.4s ease-out infinite; }
 @keyframes tab-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 5px transparent; } }
 
-/* ---------- Round 7 polish, from OpenCode packages/ui tokens ----------
+/* ---------- Round 7 polish, shared UI tokens ----------
    Inter at 14px base / 13px small, 150% line height, IBM Plex-style mono stack,
-   radii 4/6/8/10px, OpenCode's layered xs/md/lg shadows, file-type icons. */
+   radii 4/6/8/10px, layered xs/md/lg shadows, file-type icons. */
 @font-face { font-family: 'Inter'; src: url('../../assets/fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
 :root {
   --font: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;

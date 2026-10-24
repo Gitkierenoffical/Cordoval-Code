@@ -1,4 +1,4 @@
-// Theme families: Cordoval (default, lavender) plus OpenCode's built-in desktop themes.
+// Theme families: Cordoval (default, lavender) plus the bundled colour themes (MIT, see NOTICE.md).
 // The light/dark mode stays on html[data-theme]; a family overrides the colour variables.
 (function () {
   'use strict';

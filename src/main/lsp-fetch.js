@@ -1,6 +1,6 @@
 'use strict';
 // Resolves native language servers: uses one on PATH, otherwise fetches it on first use
-// into <userData>/lsp (like OpenCode). Nothing is downloaded until a matching file is opened.
+// into <userData>/lsp. Nothing is downloaded until a matching file is opened.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -102,7 +102,7 @@ const RESOLVERS = {
     });
   },
   async dart() {
-    // Dart's server ships with the Dart and Flutter SDKs (too large to fetch), as in OpenCode.
+    // Dart's server ships with the Dart and Flutter SDKs (too large to fetch).
     const dart = which('dart') || (which('flutter') && path.join(path.dirname(which('flutter')), IS_WIN ? 'dart.bat' : 'dart'));
     if (!dart || !fs.existsSync(dart)) throw new Error('Install the Flutter or Dart SDK to get Dart diagnostics.');
     return { command: dart, args: ['language-server', '--protocol=lsp'] };

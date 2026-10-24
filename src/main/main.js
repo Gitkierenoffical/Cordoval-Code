@@ -8,7 +8,6 @@ const { app, BrowserWindow, dialog, ipcMain, shell, session } = require('electro
 const engine = require('./engine');
 const keys = require('./keys');
 const oauth = require('./oauth');
-const updater = require('./updater');
 const engineConfig = require('./engine-config');
 const lsp = require('./lsp');
 
@@ -18,7 +17,7 @@ if (process.env.CORDOVAL_USER_DATA) app.setPath('userData', process.env.CORDOVAL
 let win = null;
 let enginePromise = null;
 
-const DEFAULT_SETTINGS = { theme: 'light', updatesEnabled: false, updateFeed: '' };
+const DEFAULT_SETTINGS = { theme: 'light' };
 
 function userDataFile(name) {
   return path.join(app.getPath('userData'), name);
@@ -27,7 +26,7 @@ function userDataFile(name) {
 function startEngine() {
   if (enginePromise) return enginePromise;
   const run = engine
-    .start((() => { try { engineConfig.seedIfMissing(); } catch (e) {} return { userData: app.getPath('userData'), keys: keys.readAll() }; })())
+    .start((() => { try { engineConfig.seedIfMissing(); } catch (e) {} return { userData: app.getPath('userData'), keys: keys.readAll(), readConfig: engineConfig.read }; })())
     .then(info => info.url)
     .catch(err => {
       if (enginePromise === run) enginePromise = null;
@@ -136,10 +135,7 @@ function registerIpc() {
 
   ipcMain.handle('engine:restart', async () => {
     if (enginePromise) await enginePromise.catch(() => {});
-    const info = await engine.restart({
-      userData: app.getPath('userData'),
-      keys: keys.readAll(),
-    });
+    const info = await engine.restart({ keys: keys.readAll() });
     enginePromise = Promise.resolve(info.url);
     return info.url;
   });
@@ -159,44 +155,31 @@ function registerIpc() {
   ipcMain.handle('keys:set', (event, provider, value) => {
     if (typeof provider !== 'string') throw new Error('Invalid provider.');
     if (value !== null && value !== undefined && typeof value !== 'string') throw new Error('Invalid key value.');
-    return keys.setKey(provider, value);
+    const ok = keys.setKey(provider, value);
+    engine.setKeys(keys.readAll());
+    return ok;
   });
 
   ipcMain.handle('keys:delete', (event, provider) => {
     if (typeof provider !== 'string') throw new Error('Invalid provider.');
-    return keys.deleteKey(provider);
+    const ok = keys.deleteKey(provider);
+    engine.setKeys(keys.readAll());
+    return ok;
   });
 
-  // Session import/export runs the engine's own CLI against the same isolated data dir.
-  function runEngineCli(args, cwd) {
-    const { execFile } = require('child_process');
-    return new Promise((resolve, reject) => {
-      const cp = execFile(engine.binaryPath(), args, { cwd, env: engine.buildEnv(app.getPath('userData'), keys.readAll()), maxBuffer: 256 * 1024 * 1024, timeout: 120000 }, (err, stdout, stderr) => {
-        if (err) reject(new Error((stderr || err.message || '').toString().split('\n').filter(Boolean).slice(-3).join(' ')));
-        else resolve(String(stdout));
-      });
-      if (cp.stdin) cp.stdin.end();
-    });
-  }
-  ipcMain.handle('session:exportJson', async (event, id, dir) => {
+  // Session import/export goes straight to the in-process engine.
+  ipcMain.handle('session:exportJson', async (event, id) => {
     if (!/^[A-Za-z0-9_-]+$/.test(String(id))) throw new Error('Invalid session id.');
-    const out = await runEngineCli(['export', String(id)], dir && fs.existsSync(dir) ? dir : app.getPath('home'));
-    const start = out.indexOf('{');
-    const data = JSON.parse(out.slice(start));
-    return JSON.stringify(data, null, 2);
+    await startEngine();
+    return JSON.stringify(engine.instance().exportSession(String(id)), null, 2);
   });
   ipcMain.handle('session:importJson', async (event, dir) => {
     const res = await dialog.showOpenDialog(win, { title: 'Import session', properties: ['openFile'], filters: [{ name: 'Session JSON', extensions: ['json'] }] });
     if (res.canceled || !res.filePaths[0]) return null;
-    const file = res.filePaths[0];
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (!data || !data.info || !data.info.id || !Array.isArray(data.messages)) throw new Error('That file is not an exported session.');
-    // Re-home the session in the current project so it shows up in the list.
-    const tmp = path.join(app.getPath('temp'), 'cordoval-import-' + Date.now() + '.json');
-    if (dir) data.info.directory = dir;
-    fs.writeFileSync(tmp, JSON.stringify(data));
-    try { await runEngineCli(['import', tmp], dir && fs.existsSync(dir) ? dir : app.getPath('home')); } finally { fs.rmSync(tmp, { force: true }); }
-    return { id: data.info.id, title: data.info.title || '' };
+    const data = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf8'));
+    await startEngine();
+    const info = engine.instance().importSession(data, dir && fs.existsSync(dir) ? dir : undefined);
+    return { id: info.id, title: info.title || '' };
   });
   ipcMain.handle('file:saveAs', async (event, defaultName, content) => {
     const res = await dialog.showSaveDialog(win, { title: 'Save', defaultPath: path.join(app.getPath('documents'), String(defaultName || 'export.txt').replace(/[\\/:*?"<>|]/g, '-')) });
@@ -210,92 +193,28 @@ function registerIpc() {
     return require('./mcp-probe').listTools(entry);
   });
   ipcMain.handle('econfig:path', () => engineConfig.configFile());
-  // Applies config changes live: the engine re-reads its global config file on any
-  // PATCH /global/config, so write the file (deletions included) and send a no-op patch.
-  // Falls back to a restart only if the live reload fails.
-  async function engineRequest(method, p, body) {
-    const url = enginePromise ? await enginePromise : null;
-    if (!url) throw new Error('Engine not running.');
-    const res = await fetch(url + p, { method, headers: { 'content-type': 'application/json', 'x-opencode-ticket': '1' }, body: body ? JSON.stringify(body) : undefined });
-    if (!res.ok) throw new Error('Engine returned ' + res.status);
-    return res;
-  }
-  // What the running engine (1.19.0) can take without a restart, checked by hand:
-  //  - agent additions/changes: PATCH /global/config re-merges them live. Permission changes
-  //    showed up in a bare engine but not with Cordoval's provider config, so they restart.
-  //  - MCP servers: POST /mcp adds or replaces one in a project instance, and
-  //    /mcp/:name/connect|disconnect switch it on or off, so all MCP edits are live.
-  //  - command changes and removed agent/permission entries stay in memory until a restart.
-  // Restarts only happen while every session is idle (the renderer queues them).
-  let pendingBefore = null;
-  function diffSection(a, b) {
-    a = a && typeof a === 'object' ? a : {}; b = b && typeof b === 'object' ? b : {};
-    const names = new Set(Object.keys(a).concat(Object.keys(b)));
-    const out = { added: [], changed: [], removed: [] };
-    for (const n of names) {
-      if (!(n in a)) out.added.push(n); else if (!(n in b)) out.removed.push(n);
-      else if (JSON.stringify(a[n]) !== JSON.stringify(b[n])) out.changed.push(n);
-    }
-    return out;
-  }
-  async function applyMcpLive(before, after, dirs) {
-    const d = diffSection(before.mcp, after.mcp);
-    for (const dir of dirs) {
-      const q = '?directory=' + encodeURIComponent(dir);
-      for (const n of d.added.concat(d.changed)) {
-        const cfg = after.mcp[n];
-        if (cfg.enabled === false) { await engineRequest('POST', '/mcp/' + encodeURIComponent(n) + '/disconnect' + q).catch(() => {}); continue; }
-        await engineRequest('POST', '/mcp' + q, { name: n, config: cfg });
-      }
-      for (const n of d.removed) await engineRequest('POST', '/mcp/' + encodeURIComponent(n) + '/disconnect' + q).catch(() => {});
-    }
-  }
+  // The engine reads its config file on every request, so saving applies at once;
+  // MCP servers are re-synced here.
   ipcMain.handle('econfig:set', async (event, obj, opts) => {
     opts = opts || {};
-    const current = engineConfig.read();
-    const clean = engineConfig.write(obj);
-    if (opts.writeOnly) {
-      if (!pendingBefore) pendingBefore = current;
-      return { url: enginePromise ? await enginePromise : null, restarted: false, applied: false };
-    }
-    const before = pendingBefore || current;
-    pendingBefore = null;
-    const keysChanged = Object.keys(Object.assign({}, before, clean)).filter((k) => k !== '$schema' && JSON.stringify(before[k]) !== JSON.stringify(clean[k]));
-    const agentD = diffSection(before.agent, clean.agent);
-    const permD = diffSection(before.permission, clean.permission);
-    const needsRestart = opts.forceRestart
-      || keysChanged.some((k) => !['agent', 'mcp', 'share', 'autoupdate'].includes(k))
-      || agentD.removed.length > 0 || permD.removed.length > 0;
-    if (!needsRestart) {
-      try {
-        const patch = Object.assign({}, clean); delete patch.$schema;
-        await engineRequest('PATCH', '/global/config', patch);
-        if (keysChanged.includes('mcp')) await applyMcpLive(before, clean, (opts.directories || []).filter(Boolean));
-        return { url: await enginePromise, restarted: false, applied: true };
-      } catch (err) { /* fall through to a restart */ }
-    }
-    if (enginePromise) await enginePromise.catch(() => {});
-    const info = await engine.restart({ userData: app.getPath('userData'), keys: keys.readAll() });
-    enginePromise = Promise.resolve(info.url);
-    return { url: info.url, restarted: true, applied: true };
+    engineConfig.write(obj);
+    const url = enginePromise ? await enginePromise.catch(() => null) : null;
+    if (opts.writeOnly) return { url, restarted: false, applied: false };
+    if (engine.instance()) await engine.instance().reload();
+    return { url, restarted: false, applied: true };
   });
-  ipcMain.handle('eproject:apply', async (event, dir) => {
-    await engineRequest('POST', '/instance/dispose?directory=' + encodeURIComponent(String(dir || '')));
+  ipcMain.handle('eproject:apply', async () => {
+    if (engine.instance()) await engine.instance().reload();
     return true;
   });
   ipcMain.handle('eproject:list', (event, dir, kind) => engineConfig.listProject(dir, kind));
   ipcMain.handle('eproject:write', (event, dir, kind, name, content) => engineConfig.writeProject(dir, kind, name, content));
   ipcMain.handle('eproject:delete', (event, dir, kind, name) => engineConfig.deleteProject(dir, kind, name));
-  ipcMain.handle('update:check', () => updater.check({ ...DEFAULT_SETTINGS, ...readSettings() }));
-  ipcMain.handle('update:download', () => updater.download());
-  ipcMain.handle('update:install', () => updater.install());
-  ipcMain.handle('update:status', () => updater.status());
   ipcMain.handle('app:version', () => app.getVersion());
-  updater.onStatus((st) => { if (win && !win.isDestroyed()) win.webContents.send('update:status', st); });
   ipcMain.handle('keys:storage', () => keys.storageStatus());
   ipcMain.handle('keys:getCustom', () => keys.getCustom());
 
-  ipcMain.handle('keys:setCustom', (event, list) => keys.setCustom(list));
+  ipcMain.handle('keys:setCustom', (event, list) => { const ok = keys.setCustom(list); engine.setKeys(keys.readAll()); return ok; });
 
   ipcMain.handle('settings:get', () => ({ ...DEFAULT_SETTINGS, ...readSettings() }));
 
@@ -401,18 +320,17 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  setTimeout(() => {
-    const st = { ...DEFAULT_SETTINGS, ...readSettings() };
-    if (st.updatesEnabled && st.updateFeed) updater.check(st).catch(() => {});
-  }, 15000);
-  // The local engine only trusts same-origin callers; the UI is loaded from file://,
-  // so present the engine's own origin on requests to the loopback engine.
+  // The local engine only answers requests that carry this run's token, so add it (and a
+  // loopback origin) to the window's requests to the engine's port only.
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['http://127.0.0.1/*', 'ws://127.0.0.1/*', 'http://127.0.0.1:*/*', 'ws://127.0.0.1:*/*'] },
     (details, callback) => {
       try {
         const u = new URL(details.url);
-        details.requestHeaders.Origin = 'http://' + u.host;
+        if (engine.port() && Number(u.port) === engine.port()) {
+          details.requestHeaders.Origin = 'http://' + u.host;
+          details.requestHeaders['x-cordoval-token'] = engine.token();
+        }
       } catch (err) {}
       callback({ requestHeaders: details.requestHeaders });
     }

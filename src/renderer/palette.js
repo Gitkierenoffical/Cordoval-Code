@@ -1,5 +1,5 @@
 // Command palette (Ctrl+K / Ctrl+Shift+P) and global keyboard shortcuts, following
-// OpenCode desktop's default keybinds where they apply to Cordoval Code.
+// Default keybinds for Cordoval Code.
 (function () {
   'use strict';
   const isMac = /Mac/.test(navigator.platform);

@@ -37,10 +37,6 @@
             New session
           </button>
         </div>
-        <div class="sidebar-label sidebar-label-row">Workspaces
-          <button type="button" class="btn btn-ghost btn-xs" id="btn-new-worktree" title="Create a git worktree with its own branch">New worktree</button>
-        </div>
-        <div class="worktree-list" id="worktree-list"></div>
         <div class="sidebar-label">Sessions</div>
         <div class="session-list" id="session-list"></div>
       </aside>
@@ -191,7 +187,6 @@
         <button type="button" class="modal-tab is-active" data-stab="providers">Providers</button>
         <button type="button" class="modal-tab" data-stab="custom">Custom endpoints</button>
         <button type="button" class="modal-tab" data-stab="appearance">Appearance</button>
-        <button type="button" class="modal-tab" data-stab="updates">Updates</button>
         <button type="button" class="modal-tab" data-stab="privacy">Privacy</button>
       </div>
       <div class="modal-body">
@@ -201,7 +196,7 @@
           <div class="setting-row">
             <div>
               <div class="setting-label">Theme</div>
-              <div class="setting-help">Mode. Cordoval lavender is the default colour theme; OpenCode's built-in themes are below.</div>
+              <div class="setting-help">Mode. Cordoval lavender is the default colour theme; more colour themes are below.</div>
             </div>
             <div class="theme-choice">
               <label class="radio"><input type="radio" name="theme" value="light"> Light</label>
@@ -210,22 +205,10 @@
           </div>
           <div id="theme-family-picker"></div>
         </section>
-        <section class="modal-view" data-stab="updates" id="settings-updates">
-          <p class="privacy-sub">Cordoval Code version <span id="app-version">-</span>. Updates are off by default and nothing is contacted until you turn them on and set a feed.</p>
-          <label class="check-row"><input type="checkbox" id="updates-enabled"> Check for updates automatically at start-up</label>
-          <label class="field-label" for="update-feed">Update feed URL (electron-builder generic feed, https)</label>
-          <input type="text" class="input" id="update-feed" placeholder="https://example.org/cordoval-code/updates" autocomplete="off">
-          <div class="update-actions">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-update-save">Save</button>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-update-check">Check for updates</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-update-download" hidden>Download</button>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-update-install" hidden>Restart and install</button>
-          </div>
-          <p class="privacy-sub" id="update-status">Updates are off.</p>
-        </section>
         <section class="modal-view" data-stab="privacy" id="settings-privacy">
           <p class="privacy-text">No Cordoval servers. No telemetry. Keys stay on this device.</p>
-          <p class="privacy-sub">API keys are stored with the OS keychain via Electron safeStorage. Prompts, files, and diffs are sent only to the local engine and the model provider you configure.</p>
+          <p class="privacy-sub">API keys are stored with the OS keychain via Electron safeStorage. Prompts, files, and diffs are sent only to the model provider you choose, straight from this app. The Cordoval engine runs inside the app; keys are added to provider requests at the network layer and never stored with your sessions.</p>
+          <p class="privacy-sub">Cordoval Code version <span id="app-version">-</span>. This build never updates itself; install new versions by hand.</p>
         </section>
       </div>
     </div>
@@ -287,7 +270,6 @@
   <script src="diff.js"></script>
   <script src="terminal.js"></script>
   <script src="editor.js"></script>
-  <script src="worktrees.js"></script>
   <script src="updates.js"></script>
   <script src="customize.js"></script>
   <script src="file-icons.js"></script>

@@ -378,7 +378,7 @@
     toast('Saved');
   }
 
-  // Project .opencode files are read when the engine starts, so restart it to pick them up.
+  // Project .cordoval files are read when the engine starts, so restart it to pick them up.
   async function reloadEngine() {
     try { await window.CordovalApp.applyProjectFiles(); } catch (err) { toast('Engine reload failed: ' + errMsg(err), 'error'); }
   }
@@ -1044,7 +1044,7 @@
     clear(view);
     const headRow = el('div');
     headRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px;';
-    headRow.appendChild(sectionHeader('Agents', 'Built-in agents are read-only. Global agents live in the engine config; project agents in .opencode/agent.'));
+    headRow.appendChild(sectionHeader('Agents', 'Built-in agents are read-only. Global agents live in the engine config; project agents in .cordoval/agent.'));
     headRow.appendChild(actionButton('New agent', 'btn btn-secondary btn-sm', function () {
       openAgentForm(null, 'create');
     }));
@@ -1071,7 +1071,7 @@
     spacer.style.cssText = 'flex:1 1 auto;';
     head.appendChild(nameEl);
     head.appendChild(spacer);
-    const tag = rec.builtIn ? 'Built-in' : rec.hasProject ? 'Project .opencode/agent' : 'Global config';
+    const tag = rec.builtIn ? 'Built-in' : rec.hasProject ? 'Project .cordoval/agent' : 'Global config';
     const tagEl = el('span', null, tag);
     tagEl.style.cssText = 'font-size:11px; color:var(--muted, #6b7280);';
     head.appendChild(tagEl);
@@ -1176,7 +1176,7 @@
     const name = textInput('e.g. my-reviewer', data.name);
     const scope = selectControl([
       { value: 'global', label: 'Global config' },
-      { value: 'project', label: 'This project .opencode/agent' },
+      { value: 'project', label: 'This project .cordoval/agent' },
     ], data.isNew ? 'project' : data.scope);
     const description = textInput('What this agent is for', data.description);
     const mode = selectControl([
@@ -1184,7 +1184,7 @@
       { value: 'subagent', label: 'subagent' },
       { value: 'all', label: 'all' },
     ], data.mode || 'all');
-    const model = textInput('opencode/glm-5.3-flash-free', data.model);
+    const model = textInput('openrouter/openai/gpt-5.4-mini', data.model);
     const temperature = textInput('e.g. 0.4', typeof data.temperature === 'number' ? String(data.temperature) : '');
     const prompt = textArea(8, 'System prompt for the agent', data.prompt);
     const toolBoxes = [];
@@ -1218,7 +1218,7 @@
   function renderAgentForm(view) {
     clear(view);
     const data = agentForm;
-    const head = sectionHeader(data.isNew ? 'New agent' : 'Edit agent "' + data.name + '"', 'Global scope writes the engine config; project scope writes .opencode/agent/<name>.md.');
+    const head = sectionHeader(data.isNew ? 'New agent' : 'Edit agent "' + data.name + '"', 'Global scope writes the engine config; project scope writes .cordoval/agent/<name>.md.');
     view.appendChild(head);
 
     view.appendChild(formField('Name', data.fields.name));
@@ -1425,7 +1425,7 @@
     clear(view);
     const headRow = el('div');
     headRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px;';
-    headRow.appendChild(sectionHeader('Commands', 'Slash commands from the engine config and .opencode/command.'));
+    headRow.appendChild(sectionHeader('Commands', 'Slash commands from the engine config and .cordoval/command.'));
     headRow.appendChild(actionButton('New command', 'btn btn-secondary btn-sm', function () {
       openCommandForm(null, 'create');
     }));
@@ -1452,7 +1452,7 @@
     const spacer = el('span');
     spacer.style.cssText = 'flex:1 1 auto;';
     head.appendChild(spacer);
-    const tag = rec.hasProject ? 'Project .opencode/command' : 'Global config';
+    const tag = rec.hasProject ? 'Project .cordoval/command' : 'Global config';
     const tagEl = el('span', null, tag);
     tagEl.style.cssText = 'font-size:11px; color:var(--muted, #6b7280);';
     head.appendChild(tagEl);
@@ -1533,7 +1533,7 @@
     const name = textInput('e.g. fix-issue', data.name);
     const scope = selectControl([
       { value: 'global', label: 'Global' },
-      { value: 'project', label: 'Project .opencode/command' },
+      { value: 'project', label: 'Project .cordoval/command' },
     ], data.isNew ? 'project' : data.scope);
     const description = textInput('What the command does', data.description);
     const agentOptions = [{ value: '', label: '(no agent)' }];
@@ -1555,7 +1555,7 @@
   function renderCommandForm(view) {
     clear(view);
     const data = commandForm;
-    const head = sectionHeader(data.isNew ? 'New command' : 'Edit command "' + data.name + '"', 'Global scope writes the engine config; project scope writes .opencode/command/<name>.md. Template placeholders: $ARGUMENTS, $1, !`shell`, @file.');
+    const head = sectionHeader(data.isNew ? 'New command' : 'Edit command "' + data.name + '"', 'Global scope writes the engine config; project scope writes .cordoval/command/<name>.md. Template placeholders: $ARGUMENTS, $1, !`shell`, @file.');
     view.appendChild(head);
 
     view.appendChild(formField('Name', data.fields.name));

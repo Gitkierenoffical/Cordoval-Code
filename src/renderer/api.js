@@ -214,7 +214,7 @@
       const base = engineUrl();
       let ticket = null;
       try {
-        const t = await request('/pty/' + encodeURIComponent(id) + '/connect-token', { method: 'POST', headers: { 'x-opencode-ticket': '1' } });
+        const t = await request('/pty/' + encodeURIComponent(id) + '/connect-token', { method: 'POST' });
         ticket = t && t.ticket;
       } catch (err) {}
       const url = new URL(base.replace(/^http/, 'ws') + '/pty/' + encodeURIComponent(id) + '/connect');

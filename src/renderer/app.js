@@ -1,7 +1,7 @@
 'use strict';
 
 (function () {
-  const DEFAULT_MODEL = { providerID: 'opencode', modelID: 'glm-5.3-flash-free' };
+  const DEFAULT_MODEL = { providerID: 'openrouter', modelID: 'openai/gpt-5.4-mini' };
   const PROVIDER_LABELS = {
     openrouter: 'OpenRouter',
     openai: 'OpenAI',
@@ -451,7 +451,7 @@
           await selectSession(state.sessions[0].id);
         } else {
           const created = await window.Api.createSession();
-          state.sessions.push(created);
+          if (!state.sessions.some(function (x) { return x.id === created.id; })) state.sessions.push(created);
           await selectSession(created.id);
         }
       }
@@ -466,7 +466,7 @@
     try {
       const created = await window.Api.createSession();
       if (created && created.id) {
-        state.sessions.unshift(created);
+        if (!state.sessions.some(function (x) { return x.id === created.id; })) state.sessions.unshift(created);
         await selectSession(created.id);
         renderSessions();
       }
@@ -859,14 +859,12 @@
   }
 
   function isFreeModel(provider, id, model) {
-    if (/(^|[-_:])free$/i.test(id)) return true;
-    const cost = model && model.cost;
-    return provider.id === 'opencode' && !!cost && Number(cost.input) === 0 && Number(cost.output) === 0;
+    return provider.id === 'openrouter' && /:free$/i.test(id);
   }
 
   function providerLabel(provider) {
     const known = {
-      opencode: 'OpenCode Zen', openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
+      mock: 'Test provider', openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
       google: 'Google Gemini', groq: 'Groq', xai: 'xAI', ollama: 'Ollama', lmstudio: 'LM Studio',
     };
     return known[provider.id] || PROVIDER_LABELS[provider.id] || provider.name || provider.id;
@@ -906,8 +904,8 @@
     const current = currentModel();
     let matched = false;
     const providers = state.providers.slice().sort(function (a, b) {
-      if (a.id === 'opencode') return -1;
-      if (b.id === 'opencode') return 1;
+      const rank = function (p) { return p.id === 'mock' ? 0 : p.id === 'openrouter' ? 1 : 2; };
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
       return providerLabel(a).localeCompare(providerLabel(b));
     });
     for (const provider of providers) {
@@ -963,7 +961,7 @@
     }
   }
 
-  // Custom primary agents from the engine (config or .opencode/agent) show up next to Build and Plan.
+  // Custom primary agents from the engine (config or .cordoval/agent) show up next to Build and Plan.
   async function loadCustomAgents() {
     const BUILT_IN = ['build', 'plan', 'general', 'explore', 'compaction', 'summary', 'title'];
     try {
@@ -1042,8 +1040,9 @@
     try {
       state.lastPrompt = state.lastPrompt || {};
       state.lastPrompt[state.sessionId] = { payload: payload, tried: [model.providerID + '/' + model.modelID] };
-      await window.Api.promptAsync(state.sessionId, payload);
+      // Mark busy before the request: a fast turn can finish (and send idle) before the reply lands.
       state.busyBySession[state.sessionId] = true;
+      await window.Api.promptAsync(state.sessionId, payload).catch(function (err) { delete state.busyBySession[state.sessionId]; throw err; });
       updateStopButton();
       renderSessions();
       const stamp = Date.now();
@@ -1136,8 +1135,8 @@
   }
 
   // Models whose metadata claims image input but which ignored images in our tests.
-  const VISION_UNRELIABLE = { 'opencode/mimo-v2.6-flash-free': true };
-  const VISION_PREFERRED = ['opencode/nemotron-3.5-super-vl-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/minimax-m3.1-flash-free'];
+  const VISION_UNRELIABLE = {};
+  const VISION_PREFERRED = ['openrouter/openai/gpt-5.4-mini', 'openrouter/google/gemini-2.5-flash', 'openrouter/anthropic/claude-sonnet-4.6'];
 
   function findModelInfo(providerID, modelID) {
     const provider = state.providers.find(function (p) { return p.id === providerID; });
@@ -1214,7 +1213,7 @@
     const current = last.tried[last.tried.length - 1].split('/');
     const currentProvider = state.providers.find(function (p) { return p.id === current[0]; });
     if (!currentProvider || !isFreeModel(currentProvider, current[1], (currentProvider.models || {})[current[1]])) return false;
-    const preferred = ['opencode/glm-5.3-flash-free', 'opencode/minimax-m3.1-flash-free', 'opencode/longcat-2.5-preview-free', 'opencode/nemotron-3.5-super-vl-free', 'opencode/nemotron-3.5-lightning-free', 'opencode/nemotron-3-ultra-free', 'opencode/mimo-v2.6-flash-free', 'opencode/deepseek-v4.1-flash-free'];
+    const preferred = [];
     const candidates = preferred.slice();
     for (const p of state.providers) for (const k of Object.keys(p.models || {})) {
       const id = p.id + '/' + ((p.models[k] && p.models[k].id) || k);
@@ -1380,7 +1379,7 @@
     if (!state.sessions.length && !opts.skipCreateSession) {
       try {
         const created = await window.Api.createSession();
-        state.sessions.push(created);
+        if (!state.sessions.some(function (x) { return x.id === created.id; })) state.sessions.push(created);
         await selectSession(created.id);
         renderSessions();
       } catch (err) {
@@ -1571,7 +1570,7 @@
     }
   }
 
-  // Coloured file-type icons from OpenCode's sprite sheet.
+  // Coloured file-type icons from the bundled sprite sheet (MIT, see NOTICE.md).
   function fileIcon(path, isDir, open) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
@@ -2214,7 +2213,7 @@
       if (!sessionId) {
         const created = await window.Api.createSession();
         if (created && created.id) {
-          state.sessions.unshift(created);
+          if (!state.sessions.some(function (x) { return x.id === created.id; })) state.sessions.unshift(created);
           await selectSession(created.id);
           renderSessions();
           sessionId = created.id;
@@ -2235,8 +2234,8 @@
       };
       state.lastPrompt = state.lastPrompt || {};
       state.lastPrompt[sessionId] = { payload: tplPayload, tried: [model.providerID + '/' + model.modelID] };
-      await window.Api.promptAsync(sessionId, tplPayload);
       state.busyBySession[sessionId] = true;
+      await window.Api.promptAsync(sessionId, tplPayload).catch(function (err) { delete state.busyBySession[sessionId]; throw err; });
       updateStopButton();
       renderSessions();
       setTimeout(function () {
@@ -2394,6 +2393,9 @@
       return;
     }
     const model = currentModel();
+    const runningId = state.sessionId;
+    state.busyBySession[runningId] = true;
+    updateStopButton();
     window.Api.runCommand(state.sessionId, {
       command: command.name,
       arguments: String(args || ''),
@@ -2402,14 +2404,15 @@
     })
       .then(function () {
         toast('Running /' + command.name + '.');
-        state.busyBySession[state.sessionId] = true;
-        updateStopButton();
+        renderSessions();
         renderSessions();
         setTimeout(function () {
           selectSession(state.sessionId).catch(function () {});
         }, 400);
       })
       .catch(function (err) {
+        delete state.busyBySession[runningId];
+        updateStopButton();
         toast(errorMessage(err), 'error');
       });
   }

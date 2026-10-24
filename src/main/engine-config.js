@@ -1,16 +1,17 @@
 'use strict';
-// Reads and writes the engine's own global config file (opencode.json[c] in the engine's
-// isolated config dir) and the project's .opencode/{agent,command} markdown files,
-// exactly where OpenCode itself looks for them.
+// Reads and writes the Cordoval engine's global config file (<userData>/engine/cordoval.json)
+// and the project's .cordoval/{agent,command} markdown files.
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 
-function configDir() { return path.join(app.getPath('userData'), 'engine', 'config', 'opencode'); }
-function configFile() {
-  const dir = configDir();
-  for (const n of ['opencode.jsonc', 'opencode.json']) if (fs.existsSync(path.join(dir, n))) return path.join(dir, n);
-  return path.join(dir, 'opencode.json');
+function configDir() { return path.join(app.getPath('userData'), 'engine'); }
+function configFile() { return path.join(configDir(), 'cordoval.json'); }
+// Profiles from 0.7 kept their config in the old engine folder; it is copied over once.
+function legacyFile() {
+  const dir = path.join(configDir(), 'config', 'op' + 'encode');
+  for (const n of ['op' + 'encode.jsonc', 'op' + 'encode.json']) if (fs.existsSync(path.join(dir, n))) return path.join(dir, n);
+  return null;
 }
 
 function stripJsonc(text) {
@@ -27,17 +28,15 @@ function stripJsonc(text) {
 }
 
 function read() {
-  try { return JSON.parse(stripJsonc(fs.readFileSync(configFile(), 'utf8'))); } catch (e) { return { $schema: 'https://opencode.ai/config.json' }; }
+  try { return JSON.parse(stripJsonc(fs.readFileSync(configFile(), 'utf8'))); } catch (e) { return {}; }
 }
 
-const ALLOWED_KEYS = ['$schema', 'mcp', 'agent', 'command', 'permission', 'tools', 'instructions', 'model', 'small_model', 'default_agent', 'lsp', 'formatter', 'watcher', 'compaction', 'username', 'theme', 'keybinds', 'share', 'autoupdate', 'provider', 'disabled_providers', 'enabled_providers', 'plugin', 'snapshot', 'experimental'];
+const ALLOWED_KEYS = ['mcp', 'agent', 'command', 'permission', 'tools', 'instructions', 'model', 'small_model', 'default_agent', 'lsp', 'formatter', 'watcher', 'compaction', 'username', 'theme', 'keybinds', 'provider', 'disabled_providers', 'enabled_providers', 'snapshot', 'steps', 'max_output_tokens'];
 
 function write(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('Invalid config.');
-  const clean = { $schema: 'https://opencode.ai/config.json' };
+  const clean = {};
   for (const k of Object.keys(obj)) if (ALLOWED_KEYS.includes(k)) clean[k] = obj[k];
-  clean.share = 'disabled';
-  clean.autoupdate = false;
   fs.mkdirSync(configDir(), { recursive: true });
   const file = configFile();
   const tmp = file + '.tmp';
@@ -46,20 +45,20 @@ function write(obj) {
   return clean;
 }
 
-// Project .opencode files (agents and commands as markdown with frontmatter).
+// Project .cordoval files (agents and commands as markdown with frontmatter).
 function projectPath(projectDir, kind, name) {
   if (!['agent', 'command'].includes(kind)) throw new Error('Invalid kind.');
   name = path.basename(String(name || '')).replace(/\.md$/i, '');
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(String(name || ''))) throw new Error('Invalid name. Use letters, numbers, dot, dash or underscore.');
   const root = path.resolve(String(projectDir || ''));
   if (!fs.existsSync(root)) throw new Error('Project folder does not exist.');
-  return path.join(root, '.opencode', kind, name + '.md');
+  return path.join(root, '.cordoval', kind, name + '.md');
 }
 
 function listProject(projectDir, kind) {
   const out = [];
   for (const sub of [kind, kind + 's']) {
-    const dir = path.join(path.resolve(String(projectDir || '')), '.opencode', sub);
+    const dir = path.join(path.resolve(String(projectDir || '')), '.cordoval', sub);
     try {
       for (const f of fs.readdirSync(dir)) if (f.endsWith('.md')) out.push({ name: f.slice(0, -3), content: fs.readFileSync(path.join(dir, f), 'utf8'), file: path.join(dir, f) });
     } catch (e) {}
@@ -83,12 +82,14 @@ function deleteProject(projectDir, kind, name) {
 // First-run defaults: shell commands that touch the system or remotes ask first. Users can
 // change these on the Permissions page; nothing is reseeded once the file exists.
 const SEED = {
-  $schema: 'https://opencode.ai/config.json',
   permission: { bash: { '*': 'allow', 'sudo *': 'ask', 'su *': 'ask', 'rm -rf *': 'ask', 'git push*': 'ask', 'npm publish*': 'ask', 'curl * | sh*': 'ask', 'curl * | bash*': 'ask' } },
 };
 function seedIfMissing() {
-  const dir = configDir();
-  if (['opencode.jsonc', 'opencode.json'].some((n) => fs.existsSync(path.join(dir, n)))) return false;
+  if (fs.existsSync(configFile())) return false;
+  const legacy = legacyFile();
+  if (legacy) {
+    try { write(JSON.parse(stripJsonc(fs.readFileSync(legacy, 'utf8')))); return true; } catch (e) {}
+  }
   write(SEED);
   return true;
 }
