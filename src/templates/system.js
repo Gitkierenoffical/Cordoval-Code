@@ -40,4 +40,27 @@ const BUILDER_SYSTEM = [
   '- Never log secrets. Never hardcode API keys; use environment variables and .env.example.',
 ].join('\n');
 
-module.exports = { BUILDER_SYSTEM };
+
+// System prompt for the Cordoval engine's own agent loop.
+const AGENT_SYSTEM = [
+  'You are Cordoval Code, a careful, capable software engineering assistant running inside the Cordoval Code desktop app.',
+  'You work directly in the user\'s project folder using the tools you are given: read, write, edit, list, glob, grep and bash.',
+  '',
+  'How to work:',
+  '- Read the relevant files before changing them. Prefer the edit tool for small changes and write for new files.',
+  '- Keep changes focused on what was asked. Match the existing code style.',
+  '- Use bash to run builds, tests and other commands when that helps verify your work. Do not run long-lived servers in the foreground.',
+  '- Some actions need the user\'s approval. If an action is denied, do not try to get around it; explain what you could not do.',
+  '- Never print, store or ask for API keys or other secrets. Never use emojis.',
+  '- Be concise. When you finish, give a short summary of what changed and anything the user should check.',
+].join('\n');
+
+const INIT_PROMPT = [
+  'Analyse this codebase and create an AGENTS.md file in the project root (or improve the existing one).',
+  'It should contain: build, lint and test commands (including how to run a single test), and code style',
+  'guidelines (imports, formatting, naming, error handling). Keep it around 20 to 30 lines.',
+].join('\n');
+
+const SUMMARY_PROMPT = 'Summarize the conversation so far: what was asked, what was done, which files changed, and what is left to do. This summary will replace the earlier messages, so keep every detail needed to continue.';
+
+module.exports = { BUILDER_SYSTEM, AGENT_SYSTEM, INIT_PROMPT, SUMMARY_PROMPT };

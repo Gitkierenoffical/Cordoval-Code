@@ -10,7 +10,8 @@
     "start": "electron .",
     "dist:linux": "electron-builder --linux AppImage --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
-    "dist:msix": "bash scripts/build-msix.sh"
+    "dist:msix": "bash scripts/build-msix.sh",
+    "test": "bash test/run-all.sh"
   },
   "build": {
     "appId": "app.cordoval.code",
@@ -24,16 +25,8 @@
     "asarUnpack": [
       "node_modules/typescript/**",
       "node_modules/typescript-language-server/**",
-      "node_modules/pyright/**"
-    ],
-    "extraResources": [
-      {
-        "from": "vendor/${os}",
-        "to": "engine",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "node_modules/pyright/**",
+      "node_modules/@lydell/**"
     ],
     "linux": {
       "target": "AppImage",
@@ -50,12 +43,6 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Cordoval Code"
     },
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://updates.invalid/cordoval-code"
-      }
-    ],
     "appx": {
       "identityName": "Cordoval.CordovalCode",
       "publisher": "CN=Cordoval",
@@ -69,20 +56,29 @@
     }
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
     "playwright-core": "^1.64.1"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.135",
+    "@ai-sdk/google": "^3.0.138",
+    "@ai-sdk/groq": "^3.0.79",
+    "@ai-sdk/openai": "^3.0.131",
+    "@ai-sdk/openai-compatible": "^2.0.87",
+    "@lydell/node-pty": "^1.2.0-beta.15",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "ai": "^6.0.315",
     "diff": "^9.0.0",
-    "electron-updater": "^6.8.9",
     "extract-zip": "^2.0.1",
     "marked": "^18.1.1",
     "monaco-editor": "^0.52.2",
     "pyright": "^1.1.414",
     "typescript": "^7.0.2",
-    "typescript-language-server": "^6.0.2"
+    "typescript-language-server": "^6.0.2",
+    "ws": "^8.22.0"
   }
 }
